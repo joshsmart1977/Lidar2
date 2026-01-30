@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Green Physics Pro - Manual Scan</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: -apple-system, sans-serif; color: white; }
+        #camera-view { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+        
+        /* Reticle for scanning */
+        #crosshair { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 40px; height: 40px; border: 2px solid #28a745; border-radius: 50%; pointer-events: none;
+            box-shadow: 0 0 15px rgba(40, 167, 69, 0.5);
+        }
+        #crosshair::after { content: ''; position: absolute; top: 50%; left: 50%; width: 2px; height: 20px; background: #28a745; transform: translate(-50%, -50%); }
+        #crosshair::before { content: ''; position: absolute; top: 50%; left: 50%; width: 20px; height: 2px; background: #28a745; transform: translate(-50%, -50%); }
+
+        /* Permission Overlay */
+        #gate { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; box-sizing: border-box; }
+        
+        #hud { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.8); padding: 12px; border-radius: 8px; font-size: 11px; border: 1px solid #444; pointer-events: none; }
+        .data-val { color: #28a745; font-family: monospace; font-weight: bold; }
+
+        #controls { position: absolute; bottom: 40px; width: 100%; display: flex; justify-content: center; gap: 20px; }
+        .btn { background: #28a745; color: white; border: none; font-weight: bold; cursor: pointer; }
+        .btn-round { width: 70px; height: 70px; border-radius: 50%; font-size: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .btn-large { padding: 15px 30px; border-radius: 30px; font-size: 16px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <div id="gate">
+        <h2>Sensor Access Required</h2>
+        <p>To scan green slopes, we need access to your camera and motion sensors.</p>
+        <button id="startBtn" class="btn btn-large">ALLOW ACCESS</button>
+    </div>
+
+    <video id="camera-view" autoplay playsinline></video>
+    <div id="crosshair"></div>
+
+    <div id="hud">
+        SLOPE ANALYTICS<br>
+        Pitch (Front/Back): <span id="pitch" class="data-val">0.0°</span><br>
+        Roll (Left/Right): <span id="roll" class="data-val">0.0°</span><br>
+        Nodes Captured: <span id="count" class="data-val">0</span>
+    </div>
+
+    <div id="controls" style="display: none;">
+        <button id="snapBtn" class="btn btn-round">SNAP</button>
+        <button id="doneBtn" class="btn btn-round" style="background:#007bff; display:none;">BUILD</button>
+    </div>
+
+    <script>
+        const gate = document.getElementById('gate');
+        const video = document.getElementById('camera-view');
+        const controls = document.getElementById('controls');
+        const pitchEl = document.getElementById('pitch');
+        const rollEl = document.getElementById('roll');
+        const countEl = document.getElementById('count');
+        
+        let capturedNodes = [];
+        let currentPitch = 0;
+        let currentRoll = 0;
+
+        document.getElementById('startBtn').onclick = async () => {
+            try {
+                // 1. Request Camera
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment" } 
+                });
+                video.srcObject = stream;
+
+                // 2. Request Motion (iOS specific)
+                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    if (permission !== 'granted') {
+                        alert("Motion permission denied. Slope scanning will not work.");
+                    }
+                }
+
+                // 3. Start Listening
+                window.addEventListener('deviceorientation', handleOrientation);
+                
+                // 4. Show UI
+                gate.style.display = 'none';
+                controls.style.display = 'flex';
+            } catch (err) {
+                alert("Error: " + err.message);
+            }
+        };
+
+        function handleOrientation(e) {
+            // Beta is pitch (tilting forward/backward)
+            // Gamma is roll (tilting left/right)
+            currentPitch = e.beta || 0;
+            currentRoll = e.gamma || 0;
+            
+            pitchEl.innerText = currentPitch.toFixed(1) + "°";
+            rollEl.innerText = currentRoll.toFixed(1) + "°";
+        }
+
+        document.getElementById('snapBtn').onclick = () => {
+            capturedNodes.push({
+                x: Math.sin(currentRoll * Math.PI / 180), // Simple projection
+                z: Math.sin(currentPitch * Math.PI / 180),
+                y: currentPitch / 10, // Elevation estimation
+                pitch: currentPitch,
+                roll: currentRoll
+            });
+
+            countEl.innerText = capturedNodes.length;
+            if (capturedNodes.length >= 2) {
+                document.getElementById('doneBtn').style.display = 'block';
+            }
+        };
+
+        document.getElementById('doneBtn').onclick = () => {
+            alert(`Captured ${capturedNodes.length} elevation points. Building physics mesh...`);
+            // This data can now be fed into processTerrain() from your original code
+            console.log(capturedNodes);
+        };
+    </script>
+</body>
+</html>
