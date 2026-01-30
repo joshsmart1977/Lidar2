@@ -23,14 +23,14 @@
         .label { color: #888; text-transform: uppercase; font-size: 8px; display: block; margin-bottom: 2px; }
         .val { color: #fff; font-family: monospace; font-size: 11px; font-weight: bold; }
         .legend { font-size: 9px; margin-top: 10px; line-height: 1.5; color: #666; font-style: italic; }
-        #scanOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        #scanOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; box-sizing: border-box;}
     </style>
 </head>
 <body>
     <div id="scanOverlay">
-        <h2>LiDAR SCANNING</h2>
-        <p id="scanStatus">Point your camera at the green...</p>
-        <button id="stopScanBtn" class="btn" style="background:#dc3545; max-width: 200px;">FINISH & SAVE .PLY</button>
+        <h2 style="color: #6f42c1;">LiDAR SCANNING</h2>
+        <p id="scanStatus">Point your camera at the green and move slowly.</p>
+        <button id="stopScanBtn" class="btn" style="background:#dc3545; max-width: 240px; margin-top: 20px;">STOP & LOAD PLY</button>
     </div>
 
     <button id="uiToggle">MENU</button>
@@ -91,72 +91,74 @@
             animate();
         }
 
-        // --- FIXED SCANNING LOGIC FOR MOZILLA XRVIEWER ---
+        // --- SCANNING FIX: OPTIONAL FEATURES ---
         document.getElementById('liveScanBtn').onclick = async () => {
             if (!navigator.xr) {
-                alert("WebXR not found. Open this in Mozilla XRViewer.");
+                alert("WebXR not detected. Ensure you are using Mozilla XRViewer on iOS.");
                 return;
             }
-            
-            // XRViewer uses a slightly different name for the world-sensing feature
+
+            // Move 'world-sensing' to optional so the session doesn't Hard Fail
             const sessionOptions = {
-                optionalFeatures: ['dom-overlay', 'world-sensing', 'anchors', 'plane-detection'],
+                optionalFeatures: ['local-floor', 'unbounded', 'world-sensing', 'dom-overlay'],
                 domOverlay: { root: document.body }
             };
 
             try {
                 xrSession = await navigator.xr.requestSession('immersive-ar', sessionOptions);
                 scanOverlay.style.display = 'flex';
-                document.getElementById('scanStatus').innerText = "Scanning active. Capture the green's surface.";
                 
                 xrSession.addEventListener('end', () => {
                     xrSession = null;
                     scanOverlay.style.display = 'none';
                 });
             } catch (e) {
-                console.error(e);
-                alert("Session Error: " + e.message + "\n\nTip: Go to App Settings > Privacy and enable 'World Sensing'.");
+                alert("AR Start Failed: " + e.message);
             }
         };
 
         document.getElementById('stopScanBtn').onclick = () => {
             if (xrSession) {
-                // In XRViewer, the mesh is stored in the 'worldInformation' object
-                // If the app doesn't expose the full mesh directly via API yet, 
-                // we capture the current reconstructed scene geometry.
-                exportToPLY(meshSurface ? meshSurface.geometry : new THREE.PlaneGeometry(1, 1));
+                // Captures whatever geometry is currently tracked
+                if (meshSurface) {
+                    exportToPLY(meshSurface.geometry);
+                } else {
+                    alert("No mesh data captured yet. Move your phone to build the green.");
+                }
                 xrSession.end();
             }
         };
 
         function exportToPLY(geometry) {
-            if (!geometry || !geometry.attributes.position) return;
+            if (!geometry.attributes.position) return;
             const pos = geometry.attributes.position.array;
-            let plyContent = `ply\nformat ascii 1.0\nelement vertex ${pos.length / 3}\nproperty float x\nproperty float y\nproperty float z\nend_header\n`;
+            let ply = `ply\nformat ascii 1.0\nelement vertex ${pos.length / 3}\nproperty float x\nproperty float y\nproperty float z\nend_header\n`;
             
             for (let i = 0; i < pos.length; i += 3) {
-                plyContent += `${pos[i].toFixed(4)} ${pos[i+1].toFixed(4)} ${pos[i+2].toFixed(4)}\n`;
+                ply += `${pos[i].toFixed(4)} ${pos[i+1].toFixed(4)} ${pos[i+2].toFixed(4)}\n`;
             }
 
-            const blob = new Blob([plyContent], { type: 'text/plain' });
+            const blob = new Blob([ply], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
             
+            // Auto-load it
             const loader = new PLYLoader();
             loader.load(url, (geo) => {
                 lastGeo = geo;
                 processTerrain();
                 document.getElementById('resetBtn').style.display = 'block';
                 document.getElementById('optimizeBtn').style.display = 'block';
-                document.getElementById('results').innerHTML = "Scan Loaded. Select ball position.";
+                document.getElementById('results').innerHTML = "Scan active. Tap ball location.";
             });
 
+            // Trigger download for GitHub backup
             const link = document.createElement('a');
             link.href = url;
-            link.download = `green_scan_${Date.now()}.ply`;
+            link.download = `green_${Date.now()}.ply`;
             link.click();
         }
 
-        // --- REMAINDER OF YOUR PHYSICS CODE (UNCHANGED) ---
+        // --- PHYSICS & UI LOGIC ---
         document.getElementById('fileInput').onchange = (e) => {
             const loader = new PLYLoader();
             loader.load(URL.createObjectURL(e.target.files[0]), (geo) => {
