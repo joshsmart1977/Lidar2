@@ -2,43 +2,30 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>Green Physics Pro - LiDAR Live</title>
+    <title>Green Physics Pro - Fix</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: -apple-system, sans-serif; color: white; }
-        #uiToggle { position: absolute; top: 10px; left: 10px; z-index: 100; background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        #ui { position: absolute; top: 55px; left: 10px; background: rgba(0,0,0,0.92); padding: 15px; border-radius: 12px; z-index: 10; width: 280px; pointer-events: none; border: 1px solid #444; display: none; }
-        #ui.visible { display: block; pointer-events: auto; }
-        .slider-group { margin: 12px 0; }
-        label { font-size: 10px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
-        span.slider-val { float: right; color: #4CAF50; font-weight: bold; }
-        input[type="range"] { width: 100%; margin-top: 8px; accent-color: #28a745; cursor: pointer; }
-        #controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; gap: 10px; width: 90%; max-width: 400px; }
-        .btn { flex: 1; background: #28a745; color: white; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; text-align: center; font-size: 13px; }
-        #results { margin-top: 15px; border-top: 1px solid #333; padding-top: 10px; }
-        .status-header { text-align: center; margin-bottom: 10px; font-size: 1.1em; letter-spacing: 1px; }
-        .status-in { color: #00ff00; font-weight: bold; }
-        .status-out { color: #ff4444; font-weight: bold; }
-        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .data-item { background: rgba(255,255,255,0.05); padding: 6px; border-radius: 6px; border: 1px solid #222; }
-        .label { color: #888; text-transform: uppercase; font-size: 8px; display: block; margin-bottom: 2px; }
-        .val { color: #fff; font-family: monospace; font-size: 11px; font-weight: bold; }
+        body { margin: 0; overflow: hidden; background: #111; font-family: -apple-system, sans-serif; color: white; }
+        #uiToggle { position: absolute; top: 10px; left: 10px; z-index: 100; background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        #ui { position: absolute; top: 55px; left: 10px; background: rgba(0,0,0,0.9); padding: 15px; border-radius: 12px; z-index: 10; width: 260px; display: none; border: 1px solid #444; }
+        #ui.visible { display: block; }
+        .slider-group { margin: 10px 0; font-size: 12px; }
+        input[type="range"] { width: 100%; accent-color: #28a745; }
+        #controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; gap: 10px; width: 90%; }
+        .btn { flex: 1; background: #28a745; color: white; padding: 15px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; }
+        #statusLog { font-size: 12px; color: #ffcc00; margin-bottom: 5px; text-align: center; }
     </style>
 </head>
 <body>
     <button id="uiToggle">MENU</button>
     <div id="ui">
-        <h3 style="margin:0 0 10px 0;">Green Physics Pro</h3>
-        <div id="statusLog" style="font-size: 10px; color: #ffcc00; margin-bottom: 10px;">Status: Ready</div>
-        <div class="slider-group"><label>Mesh Smooth: <span id="smoothVal" class="slider-val">5</span></label><input type="range" id="smoothSlider" min="1" max="12" step="1" value="5"></div>
-        <div class="slider-group"><label>Stimp: <span id="stimpVal" class="slider-val">11.0</span></label><input type="range" id="stimpSlider" min="7" max="14" step="0.1" value="11.0"></div>
-        <div class="slider-group"><label>Aim Offset: <span id="aimVal" class="slider-val">0.0</span>°</label><input type="range" id="aimSlider" min="-30" max="30" step="0.1" value="0.0"></div>
-        <div class="slider-group"><label>Putt Power: <span id="pwrVal" class="slider-val">3.2</span> m/s</label><input type="range" id="pwrSlider" min="0.5" max="12" step="0.05" value="3.2"></div>
-        <div id="results">Scan the floor to start.</div>
+        <div id="statusLog">Status: Standby</div>
+        <div class="slider-group"><label>Stimp: <span id="stimpVal">11.0</span></label><input type="range" id="stimpSlider" min="7" max="14" step="0.1" value="11.0"></div>
+        <div class="slider-group"><label>Power: <span id="pwrVal">3.2</span></label><input type="range" id="pwrSlider" min="0.5" max="12" step="0.1" value="3.2"></div>
+        <div class="slider-group"><label>Aim: <span id="aimVal">0.0</span>°</label><input type="range" id="aimSlider" min="-30" max="30" step="0.1" value="0.0"></div>
     </div>
     <div id="controls">
-        <button id="scanBtn" class="btn">SCAN LIVE</button>
-        <button id="optimizeBtn" class="btn" style="background:#007bff; display:none;">OPTIMIZE</button>
-        <button id="resetBtn" class="btn" style="background:#dc3545; display:none;">RESET</button>
+        <button id="scanBtn" class="btn">START SCAN</button>
+        <button id="resetBtn" class="btn" style="background:#444;">RELOAD</button>
     </div>
 
     <script type="module">
@@ -46,28 +33,21 @@
         import { ARButton } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/webxr/ARButton.js';
         import { OrbitControls } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/controls/OrbitControls.js';
 
-        let scene, camera, renderer, controls, raycaster, mouse, meshSurface, lastGeo;
-        let selectedPoints = [], markers = [], ballPathMesh = null, fallLineArrow = null, flatRefLine = null;
-        let ghostBall = null, pathData = [];
-        
-        // XR Variables
-        let scanning = false;
-        let lidarPoints = [];
-        let hitTestSource = null;
-        let hitTestSourceRequested = false;
+        let scene, camera, renderer, controls, meshSurface;
+        let scanning = false, lidarPoints = [], hitTestSource = null, hitTestSourceRequested = false;
+        let selectedPoints = [], markers = [], ballPathMesh = null;
 
-        const uiPanel = document.getElementById('ui');
         const statusLog = document.getElementById('statusLog');
         const scanBtn = document.getElementById('scanBtn');
-        
-        document.getElementById('uiToggle').onclick = () => uiPanel.classList.toggle('visible');
 
         init();
 
-        async function init() {
+        function init() {
             scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
-            
+            scene.background = new THREE.Color(0x111111);
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 100);
+            camera.position.set(0, 2, 5);
+
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -75,229 +55,113 @@
             document.body.appendChild(renderer.domElement);
 
             controls = new OrbitControls(camera, renderer.domElement);
-            raycaster = new THREE.Raycaster();
-            mouse = new THREE.Vector2();
+            
+            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+            scene.add(new THREE.GridHelper(20, 20, 0x444444, 0x222222)); // Add grid so we know where center is
 
-            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-            const light = new THREE.DirectionalLight(0xffffff, 0.8);
-            light.position.set(5, 15, 10);
-            scene.add(light);
-
-            ghostBall = new THREE.Mesh(new THREE.SphereGeometry(0.021, 16, 16), new THREE.MeshBasicMaterial({color: 0xffffff}));
-            ghostBall.visible = false;
-            scene.add(ghostBall);
-
-            // Hidden AR Button to be clicked via proxy
-            const arBtnElement = ARButton.createButton(renderer, { 
-                requiredFeatures: ['hit-test'],
-                optionalFeatures: ['dom-overlay'],
-                domOverlay: { root: document.body }
-            });
-            arBtnElement.style.display = 'none';
-            document.body.appendChild(arBtnElement);
+            const arBtn = ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] });
+            arBtn.style.display = 'none';
+            document.body.appendChild(arBtn);
 
             scanBtn.onclick = () => {
                 if (!renderer.xr.isPresenting) {
-                    arBtnElement.click();
+                    lidarPoints = [];
+                    arBtn.click();
                 } else {
-                    stopLidarScan();
+                    stopScan();
                 }
             };
 
+            document.getElementById('resetBtn').onclick = () => location.reload();
+            document.getElementById('uiToggle').onclick = () => document.getElementById('ui').classList.toggle('visible');
+
             renderer.xr.addEventListener('sessionstart', () => {
                 scanning = true;
-                lidarPoints = [];
                 scanBtn.innerText = "STOP & BUILD";
-                scanBtn.style.background = "#ff4444";
-                statusLog.innerText = "Status: Scanning floor...";
+                statusLog.innerText = "Status: Point at floor & move";
             });
 
-            renderer.setAnimationLoop(renderLoop);
+            renderer.setAnimationLoop(render);
         }
 
-        function renderLoop(timestamp, frame) {
+        function render(timestamp, frame) {
             if (frame && scanning) {
-                const referenceSpace = renderer.xr.getReferenceSpace();
                 const session = frame.session;
-
+                const refSpace = renderer.xr.getReferenceSpace();
                 if (!hitTestSourceRequested) {
-                    session.requestReferenceSpace('viewer').then((refSpace) => {
-                        session.requestHitTestSource({ space: refSpace }).then((source) => {
-                            hitTestSource = source;
-                        });
+                    session.requestReferenceSpace('viewer').then(s => {
+                        session.requestHitTestSource({ space: s }).then(src => hitTestSource = src);
                     });
                     hitTestSourceRequested = true;
                 }
-
                 if (hitTestSource) {
-                    const hitTestResults = frame.getHitTestResults(hitTestSource);
-                    if (hitTestResults.length > 0) {
-                        const hit = hitTestResults[0];
-                        const pose = hit.getPose(referenceSpace);
-                        // Store points
+                    const results = frame.getHitTestResults(hitTestSource);
+                    if (results.length > 0) {
+                        const pose = results[0].getPose(refSpace);
                         lidarPoints.push(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
-                        statusLog.innerText = `Status: Points Collected (${Math.floor(lidarPoints.length/3)})`;
+                        statusLog.innerText = `Points: ${Math.floor(lidarPoints.length/3)}`;
                     }
                 }
             }
-            
-            if (!renderer.xr.isPresenting) {
-                controls.update();
-            } else {
-                // In AR, we don't need orbit controls
-            }
-
-            if (ghostBall.visible && pathData.length > 0) {
-                let ghostIdx = (Math.floor(Date.now() / 20)) % pathData.length;
-                ghostBall.position.copy(pathData[ghostIdx]);
-            }
-
+            controls.update();
             renderer.render(scene, camera);
         }
 
-        function stopLidarScan() {
+        function stopScan() {
             scanning = false;
             renderer.xr.getSession().end();
-            scanBtn.innerText = "SCAN LIVE";
-            scanBtn.style.background = "#28a745";
-            
-            if (lidarPoints.length > 15) {
-                const geo = new THREE.BufferGeometry();
-                geo.setAttribute('position', new THREE.Float32BufferAttribute(lidarPoints, 3));
-                lastGeo = geo;
-                processTerrain();
-                document.getElementById('optimizeBtn').style.display = 'block';
-                document.getElementById('resetBtn').style.display = 'block';
-                statusLog.innerText = "Status: Mesh Built";
-            }
+            scanBtn.innerText = "START SCAN";
+            buildMesh();
         }
 
-        function processTerrain() {
-            if (!lastGeo) return;
+        function buildMesh() {
+            if (lidarPoints.length < 15) {
+                statusLog.innerText = "Error: Too few points!";
+                return;
+            }
+
             if (meshSurface) scene.remove(meshSurface);
-            const pos = lastGeo.attributes.position.array;
-            const grid = {}, res = 0.05; 
-            for (let i = 0; i < pos.length; i += 3) {
-                const x = pos[i], y = pos[i+1], z = pos[i+2];
-                const gx = Math.round(x / res), gz = Math.round(z / res);
+            const res = 0.15; // Rougher grid to ensure connection
+            const grid = {};
+
+            for (let i = 0; i < lidarPoints.length; i += 3) {
+                const gx = Math.round(lidarPoints[i] / res), gz = Math.round(lidarPoints[i+2] / res);
                 const key = `${gx},${gz}`;
                 if (!grid[key]) grid[key] = [];
-                grid[key].push(y);
-            }
-            let heightMap = {};
-            for (let key in grid) {
-                const h = grid[key].sort((a,b) => a-b);
-                heightMap[key] = h[Math.floor(h.length / 2)]; 
-            }
-            
-            const passes = parseInt(document.getElementById('smoothSlider').value);
-            for(let p=0; p<passes; p++) {
-                let blurred = {};
-                for (let key in heightMap) {
-                    const [gx, gz] = key.split(',').map(Number);
-                    let sum = 0, weight = 0;
-                    for(let i=-1; i<=1; i++) {
-                        for(let j=-1; j<=1; j++) {
-                            const nKey = `${gx+i},${gz+j}`;
-                            if(heightMap[nKey] !== undefined) {
-                                const w = (i===0 && j===0) ? 4 : (i===0 || j===0 ? 2 : 1);
-                                sum += heightMap[nKey] * w; weight += w;
-                            }
-                        }
-                    }
-                    blurred[key] = sum / weight;
-                }
-                heightMap = blurred;
+                grid[key].push(lidarPoints[i+1]);
             }
 
             const meshGeo = new THREE.BufferGeometry();
             const verts = [], indices = [], keyToIdx = {};
             let idx = 0;
-            for (let key in heightMap) {
+
+            for (let key in grid) {
                 const [gx, gz] = key.split(',').map(Number);
-                verts.push(gx * res, heightMap[key], gz * res);
+                const avgY = grid[key].reduce((a, b) => a + b, 0) / grid[key].length;
+                verts.push(gx * res, avgY, gz * res);
                 keyToIdx[key] = idx++;
             }
-            for (let key in heightMap) {
+
+            for (let key in keyToIdx) {
                 const [gx, gz] = key.split(',').map(Number);
                 const k1 = `${gx},${gz}`, k2 = `${gx+1},${gz}`, k3 = `${gx},${gz+1}`, k4 = `${gx+1},${gz+1}`;
                 if (keyToIdx[k1]!==undefined && keyToIdx[k2]!==undefined && keyToIdx[k3]!==undefined) indices.push(keyToIdx[k1], keyToIdx[k3], keyToIdx[k2]);
                 if (keyToIdx[k2]!==undefined && keyToIdx[k3]!==undefined && keyToIdx[k4]!==undefined) indices.push(keyToIdx[k2], keyToIdx[k3], keyToIdx[k4]);
             }
+
             meshGeo.setIndex(indices);
             meshGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
             meshGeo.computeVertexNormals();
-            meshSurface = new THREE.Mesh(meshGeo, new THREE.MeshStandardMaterial({ color: 0x245432, roughness: 0.8, side: THREE.DoubleSide }));
+            meshSurface = new THREE.Mesh(meshGeo, new THREE.MeshStandardMaterial({ color: 0x28a745, side: THREE.DoubleSide }));
             scene.add(meshSurface);
+
+            // FORCE VIEW RESET: Move camera to look at the mesh
+            const box = new THREE.Box3().setFromObject(meshSurface);
+            const center = box.getCenter(new THREE.Vector3());
+            controls.target.copy(center);
+            camera.position.set(center.x, center.y + 3, center.z + 5);
+            statusLog.innerText = "Built! Tap floor to set ball.";
         }
-
-        // Picking logic
-        window.addEventListener('pointerdown', (e) => {
-            if (uiPanel.contains(e.target) || e.target.tagName === 'BUTTON' || !meshSurface) return;
-            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-            raycaster.setFromCamera(mouse, camera);
-            const hits = raycaster.intersectObject(meshSurface);
-            if (hits.length > 0) {
-                const p = hits[0].point;
-                if (selectedPoints.length >= 2) return;
-                selectedPoints.push(p);
-                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.04), new THREE.MeshBasicMaterial({color: selectedPoints.length===1?0xffffff:0xff0000}));
-                dot.position.copy(p).add(new THREE.Vector3(0, 0.02, 0));
-                scene.add(dot); markers.push(dot);
-                if (selectedPoints.length === 2) calculatePutt();
-            }
-        });
-
-        function calculatePutt() {
-            if (ballPathMesh) scene.remove(ballPathMesh);
-            pathData = [];
-            const ballStart = selectedPoints[0].clone();
-            const holePos = selectedPoints[1].clone();
-            const pwr = parseFloat(document.getElementById('pwrSlider').value);
-            const stimp = parseFloat(document.getElementById('stimpSlider').value);
-            const aimDeg = parseFloat(document.getElementById('aimSlider').value);
-            
-            let vel = new THREE.Vector3().subVectors(holePos, ballStart).setY(0);
-            vel.applyAxisAngle(new THREE.Vector3(0, 1, 0), (aimDeg * Math.PI) / 180);
-            vel.normalize().multiplyScalar(pwr);
-            
-            const dt = 0.012, g = 9.81, mu = (0.131 * g) * (10 / stimp); 
-            let curPos = ballStart.clone();
-            let curVel = vel.clone();
-            let isMade = false;
-
-            for (let i = 0; i < 2000; i++) {
-                pathData.push(curPos.clone());
-                raycaster.set(curPos.clone().add(new THREE.Vector3(0, 0.5, 0)), new THREE.Vector3(0, -1, 0));
-                const hits = raycaster.intersectObject(meshSurface);
-                if (hits.length > 0) {
-                    const normal = hits[0].face.normal;
-                    let slopeAcc = new THREE.Vector3(0, -g, 0).projectOnPlane(normal).multiplyScalar(0.7);
-                    let friction = curVel.clone().normalize().multiplyScalar(-mu);
-                    curVel.add(slopeAcc.add(friction).multiplyScalar(dt));
-                    curPos.y = hits[0].point.y + 0.021;
-                }
-                curPos.add(curVel.clone().multiplyScalar(dt));
-                if (curPos.distanceTo(holePos) < 0.05 && curVel.length() < 1.5) { isMade = true; break; }
-                if (curVel.length() < 0.05) break;
-            }
-            
-            const curve = new THREE.CatmullRomCurve3(pathData);
-            ballPathMesh = new THREE.Mesh(new THREE.TubeGeometry(curve, pathData.length, 0.01, 8, false), new THREE.MeshBasicMaterial({ color: isMade ? 0x00ff00 : 0xff8800 }));
-            scene.add(ballPathMesh);
-            ghostBall.visible = true;
-        }
-
-        ['smoothSlider', 'stimpSlider', 'pwrSlider', 'aimSlider'].forEach(id => {
-            document.getElementById(id).oninput = (e) => {
-                document.getElementById(id.replace('Slider', 'Val')).innerText = e.target.value;
-                if (selectedPoints.length === 2) calculatePutt();
-            };
-        });
-
-        document.getElementById('resetBtn').onclick = () => location.reload();
     </script>
 </body>
 </html>
-
