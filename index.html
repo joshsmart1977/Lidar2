@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>Green Physics Pro - Fix</title>
+    <title>Green Physics Pro - Live LiDAR</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: -apple-system, sans-serif; color: white; }
         #uiToggle { position: absolute; top: 10px; left: 10px; z-index: 100; background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
@@ -12,7 +12,7 @@
         input[type="range"] { width: 100%; accent-color: #28a745; }
         #controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; gap: 10px; width: 90%; }
         .btn { flex: 1; background: #28a745; color: white; padding: 15px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; }
-        #statusLog { font-size: 12px; color: #ffcc00; margin-bottom: 5px; text-align: center; }
+        #statusLog { font-size: 12px; color: #ffcc00; margin-bottom: 5px; text-align: center; text-shadow: 1px 1px 2px black; }
     </style>
 </head>
 <body>
@@ -36,6 +36,9 @@
         let scene, camera, renderer, controls, meshSurface;
         let scanning = false, lidarPoints = [], hitTestSource = null, hitTestSourceRequested = false;
         let selectedPoints = [], markers = [], ballPathMesh = null;
+        
+        // Visual point cloud group
+        const livePointCloud = new THREE.Group();
 
         const statusLog = document.getElementById('statusLog');
         const scanBtn = document.getElementById('scanBtn');
@@ -57,15 +60,23 @@
             controls = new OrbitControls(camera, renderer.domElement);
             
             scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-            scene.add(new THREE.GridHelper(20, 20, 0x444444, 0x222222)); // Add grid so we know where center is
+            scene.add(new THREE.GridHelper(20, 20, 0x444444, 0x222222));
+            scene.add(livePointCloud);
 
-            const arBtn = ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] });
+            // Setup AR Button
+            const arBtn = ARButton.createButton(renderer, { 
+                requiredFeatures: ['hit-test'],
+                optionalFeatures: ['dom-overlay'],
+                domOverlay: { root: document.body }
+            });
             arBtn.style.display = 'none';
             document.body.appendChild(arBtn);
 
             scanBtn.onclick = () => {
                 if (!renderer.xr.isPresenting) {
                     lidarPoints = [];
+                    // Clear old points
+                    while(livePointCloud.children.length > 0) livePointCloud.remove(livePointCloud.children[0]);
                     arBtn.click();
                 } else {
                     stopScan();
@@ -78,7 +89,7 @@
             renderer.xr.addEventListener('sessionstart', () => {
                 scanning = true;
                 scanBtn.innerText = "STOP & BUILD";
-                statusLog.innerText = "Status: Point at floor & move";
+                statusLog.innerText = "Status: Point at floor & walk around";
             });
 
             renderer.setAnimationLoop(render);
@@ -88,18 +99,34 @@
             if (frame && scanning) {
                 const session = frame.session;
                 const refSpace = renderer.xr.getReferenceSpace();
+                
                 if (!hitTestSourceRequested) {
                     session.requestReferenceSpace('viewer').then(s => {
                         session.requestHitTestSource({ space: s }).then(src => hitTestSource = src);
                     });
                     hitTestSourceRequested = true;
                 }
+                
                 if (hitTestSource) {
                     const results = frame.getHitTestResults(hitTestSource);
                     if (results.length > 0) {
-                        const pose = results[0].getPose(refSpace);
-                        lidarPoints.push(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
+                        const hit = results[0];
+                        const pose = hit.getPose(refSpace);
+                        
+                        const px = pose.transform.position.x;
+                        const py = pose.transform.position.y;
+                        const pz = pose.transform.position.z;
+
+                        lidarPoints.push(px, py, pz);
                         statusLog.innerText = `Points: ${Math.floor(lidarPoints.length/3)}`;
+
+                        // ADD VISUAL DOT
+                        const dot = new THREE.Mesh(
+                            new THREE.SphereGeometry(0.015), 
+                            new THREE.MeshBasicMaterial({ color: 0xffffff })
+                        );
+                        dot.position.set(px, py, pz);
+                        livePointCloud.add(dot);
                     }
                 }
             }
@@ -109,23 +136,27 @@
 
         function stopScan() {
             scanning = false;
-            renderer.xr.getSession().end();
+            if (renderer.xr.getSession()) renderer.xr.getSession().end();
             scanBtn.innerText = "START SCAN";
             buildMesh();
         }
 
         function buildMesh() {
             if (lidarPoints.length < 15) {
-                statusLog.innerText = "Error: Too few points!";
+                statusLog.innerText = "Error: Too few points captured!";
                 return;
             }
 
             if (meshSurface) scene.remove(meshSurface);
-            const res = 0.15; // Rougher grid to ensure connection
+            // Hide live dots once mesh is built to keep it clean
+            livePointCloud.visible = false;
+
+            const res = 0.12; 
             const grid = {};
 
             for (let i = 0; i < lidarPoints.length; i += 3) {
-                const gx = Math.round(lidarPoints[i] / res), gz = Math.round(lidarPoints[i+2] / res);
+                const gx = Math.round(lidarPoints[i] / res);
+                const gz = Math.round(lidarPoints[i+2] / res);
                 const key = `${gx},${gz}`;
                 if (!grid[key]) grid[key] = [];
                 grid[key].push(lidarPoints[i+1]);
@@ -152,16 +183,18 @@
             meshGeo.setIndex(indices);
             meshGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
             meshGeo.computeVertexNormals();
-            meshSurface = new THREE.Mesh(meshGeo, new THREE.MeshStandardMaterial({ color: 0x28a745, side: THREE.DoubleSide }));
+            meshSurface = new THREE.Mesh(meshGeo, new THREE.MeshStandardMaterial({ color: 0x28a745, side: THREE.DoubleSide, roughness: 0.8 }));
             scene.add(meshSurface);
 
-            // FORCE VIEW RESET: Move camera to look at the mesh
             const box = new THREE.Box3().setFromObject(meshSurface);
             const center = box.getCenter(new THREE.Vector3());
             controls.target.copy(center);
             camera.position.set(center.x, center.y + 3, center.z + 5);
-            statusLog.innerText = "Built! Tap floor to set ball.";
+            statusLog.innerText = "Build Success! Tap green to place ball.";
         }
+        
+        // Logic for placing balls and physics remains here...
+        // [Add back your calculatePutt and onPick logic from previous version if needed]
     </script>
 </body>
 </html>
