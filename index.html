@@ -2,40 +2,33 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>Green Physics Pro - Live LiDAR</title>
+    <title>Green Physics Pro - Legacy LiDAR</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: -apple-system, sans-serif; color: white; }
-        #uiToggle { position: absolute; top: 10px; left: 10px; z-index: 100; background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        #ui { position: absolute; top: 55px; left: 10px; background: rgba(0,0,0,0.92); padding: 15px; border-radius: 12px; z-index: 10; width: 280px; pointer-events: none; border: 1px solid #444; display: none; }
-        #ui.visible { display: block; pointer-events: auto; }
+        #uiToggle { position: absolute; top: 10px; left: 10px; z-index: 100; background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; }
+        #ui { position: absolute; top: 55px; left: 10px; background: rgba(0,0,0,0.9); padding: 15px; border-radius: 12px; z-index: 10; width: 280px; display: none; border: 1px solid #444; }
+        #ui.visible { display: block; }
         .slider-group { margin: 12px 0; }
-        label { font-size: 10px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+        label { font-size: 10px; color: #aaa; text-transform: uppercase; }
         span.slider-val { float: right; color: #4CAF50; font-weight: bold; }
-        input[type="range"] { width: 100%; margin-top: 8px; accent-color: #28a745; cursor: pointer; }
-        #controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; gap: 10px; width: 90%; max-width: 400px; flex-wrap: wrap; }
-        .btn { flex: 1; background: #28a745; color: white; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; text-align: center; font-size: 13px; min-width: 80px; }
-        #results { margin-top: 15px; border-top: 1px solid #333; padding-top: 10px; }
-        #scanOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; box-sizing: border-box; }
-        .status-header { text-align: center; margin-bottom: 10px; font-size: 1.1em; letter-spacing: 1px; }
-        .status-in { color: #00ff00; font-weight: bold; text-shadow: 0 0 10px rgba(0,255,0,0.4); }
-        .status-out { color: #ff4444; font-weight: bold; }
-        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .data-item { background: rgba(255,255,255,0.05); padding: 6px; border-radius: 6px; border: 1px solid #222; }
-        .label { color: #888; text-transform: uppercase; font-size: 8px; display: block; margin-bottom: 2px; }
-        .val { color: #fff; font-family: monospace; font-size: 11px; font-weight: bold; }
+        input[type="range"] { width: 100%; accent-color: #28a745; cursor: pointer; }
+        #controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; gap: 10px; width: 90%; max-width: 400px; }
+        .btn { flex: 1; background: #28a745; color: white; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; font-size: 13px; text-align: center; }
+        #scanOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
     </style>
 </head>
 <body>
     <div id="scanOverlay">
-        <h2 style="color: #00ff00;">LiDAR ACTIVE</h2>
-        <p id="scanStatus">Scanning... Points: 0</p>
-        <button id="stopScanBtn" class="btn" style="background:#dc3545; max-width: 240px; margin-top: 20px;">GENERATE PLY</button>
+        <h2 style="color: #00ff00;">LiDAR SCANNING</h2>
+        <p id="scanStatus">Point camera at floor and move...</p>
+        <p id="pointCount">Points: 0</p>
+        <button id="stopScanBtn" class="btn" style="background:#dc3545; max-width: 200px;">FINISH SCAN</button>
     </div>
 
     <button id="uiToggle">MENU</button>
     <div id="ui">
         <h3 style="margin:0 0 10px 0;">Green Physics Pro</h3>
-        <div class="slider-group"><label>Mesh Smooth: <span id="smoothVal" class="slider-val">5</span></label><input type="range" id="smoothSlider" min="1" max="12" step="1" value="5"></div>
+        <div class="slider-group"><label>Mesh Smooth: <span id="smoothVal" class="slider-val">5</span></label><input type="range" id="smoothSlider" min="1" max="12" value="5"></div>
         <div class="slider-group"><label>Stimp: <span id="stimpVal" class="slider-val">11.0</span></label><input type="range" id="stimpSlider" min="7" max="14" step="0.1" value="11.0"></div>
         <div class="slider-group"><label>Aim Off: <span id="aimVal" class="slider-val">0.0</span>°</label><input type="range" id="aimSlider" min="-30" max="30" step="0.1" value="0.0"></div>
         <div class="slider-group"><label>Pwr: <span id="pwrVal" class="slider-val">3.2</span> m/s</label><input type="range" id="pwrSlider" min="0.5" max="12" step="0.05" value="3.2"></div>
@@ -45,7 +38,6 @@
     <div id="controls">
         <button id="liveScanBtn" class="btn" style="background: #6f42c1;">LIVE SCAN</button>
         <label class="btn" style="cursor:pointer;">LOAD .PLY<input type="file" id="fileInput" accept=".ply" style="display:none;"></label>
-        <button id="optimizeBtn" class="btn" style="background:#007bff; display:none;">OPTIMIZE</button>
         <button id="resetBtn" class="btn" style="background:#dc3545; display:none;">RESET</button>
     </div>
 
@@ -55,9 +47,8 @@
         import { OrbitControls } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/controls/OrbitControls.js';
 
         let scene, camera, renderer, controls, raycaster, mouse, meshSurface, lastGeo;
-        let selectedPoints = [], markers = [], ballPathMesh = null, fallLineArrow = null, flatRefLine = null;
-        let ghostBall = null, pathData = [];
-        let xrSession = null, globalPoints = [];
+        let selectedPoints = [], markers = [], ballPathMesh = null, ghostBall = null, pathData = [];
+        let xrSession = null, accumulatedVertices = [];
 
         init();
 
@@ -85,54 +76,48 @@
             animate();
         }
 
-        // --- NEW BRIDGE LOGIC FOR MOZILLA XRVIEWER ---
+        // --- LEGACY BRIDGE SCANNING ---
         document.getElementById('liveScanBtn').onclick = async () => {
-            if (!navigator.xr) { alert("Open in Mozilla XRViewer."); return; }
-            
-            globalPoints = []; // Reset scan
-            const sessionOptions = {
-                optionalFeatures: ['world-sensing', 'mesh-detection', 'local-floor', 'dom-overlay'],
-                domOverlay: { root: document.body }
-            };
+            if (!navigator.xr) { alert("Use Mozilla XRViewer."); return; }
+            accumulatedVertices = [];
+            const sessionOptions = { optionalFeatures: ['world-sensing', 'dom-overlay'], domOverlay: { root: document.body } };
 
             try {
                 xrSession = await navigator.xr.requestSession('immersive-ar', sessionOptions);
                 document.getElementById('scanOverlay').style.display = 'flex';
 
-                xrSession.requestReferenceSpace('local-floor').then((refSpace) => {
-                    const onFrame = (time, frame) => {
-                        if (!xrSession) return;
-                        
-                        // Accessing the World Mesh bridge
-                        const worldMesh = frame.worldInformation?.detectedMeshes || frame.detectedMeshes;
-                        if (worldMesh) {
-                            worldMesh.forEach(mesh => {
-                                // Extract raw vertex buffer from LiDAR
-                                let verts = mesh.vertices;
-                                for (let i = 0; i < verts.length; i += 3) {
-                                    globalPoints.push(verts[i], verts[i+1], verts[i+2]);
-                                }
-                            });
-                            document.getElementById('scanStatus').innerText = `Scanning... Points: ${Math.floor(globalPoints.length / 3)}`;
+                const onFrame = (time, frame) => {
+                    if (!xrSession) return;
+                    
+                    // LEGACY API: Mozilla XRViewer often populates this via worldInformation
+                    const meshes = frame.worldInformation?.detectedMeshes || [];
+                    if (meshes.length > 0) {
+                        meshes.forEach(m => {
+                            const v = m.vertices;
+                            for(let i=0; i<v.length; i++) accumulatedVertices.push(v[i]);
+                        });
+                        document.getElementById('pointCount').innerText = `Points: ${Math.floor(accumulatedVertices.length / 3)}`;
+                    } else {
+                        // FORCE: If no mesh, try to poll the legacy worldMesh directly
+                        if (xrSession.getWorldMesh) {
+                            const legacyMesh = xrSession.getWorldMesh();
+                            if (legacyMesh && legacyMesh.vertices) {
+                                for(let i=0; i<legacyMesh.vertices.length; i++) accumulatedVertices.push(legacyMesh.vertices[i]);
+                                document.getElementById('pointCount').innerText = `Points: ${Math.floor(accumulatedVertices.length / 3)} (Legacy)`;
+                            }
                         }
-                        xrSession.requestAnimationFrame(onFrame);
-                    };
+                    }
                     xrSession.requestAnimationFrame(onFrame);
-                });
-            } catch (e) {
-                alert("Scan Error: " + e.message);
-            }
+                };
+                xrSession.requestAnimationFrame(onFrame);
+            } catch (e) { alert("XR Error: " + e.message); }
         };
 
         document.getElementById('stopScanBtn').onclick = () => {
-            if (globalPoints.length < 12) {
-                alert("Not enough data. Wave your phone more!");
-                return;
-            }
-            // Turn raw points into a PLY and Load
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(globalPoints, 3));
-            exportToPLY(geometry);
+            if (accumulatedVertices.length < 9) { alert("Still no data. Try aiming at a wall or rug first."); return; }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(accumulatedVertices, 3));
+            exportToPLY(geo);
             xrSession.end();
             document.getElementById('scanOverlay').style.display = 'none';
         };
@@ -140,70 +125,36 @@
         function exportToPLY(geometry) {
             const pos = geometry.attributes.position.array;
             let ply = `ply\nformat ascii 1.0\nelement vertex ${pos.length / 3}\nproperty float x\nproperty float y\nproperty float z\nend_header\n`;
-            for (let i = 0; i < pos.length; i += 3) {
-                ply += `${pos[i].toFixed(4)} ${pos[i+1].toFixed(4)} ${pos[i+2].toFixed(4)}\n`;
-            }
-            const blob = new Blob([ply], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
+            for (let i = 0; i < pos.length; i += 3) ply += `${pos[i]} ${pos[i+1]} ${pos[i+2]}\n`;
             
             const loader = new PLYLoader();
-            loader.load(url, (geo) => {
+            loader.load(URL.createObjectURL(new Blob([ply], {type:'text/plain'})), (geo) => {
                 lastGeo = geo;
                 processTerrain();
                 document.getElementById('resetBtn').style.display = 'block';
-                document.getElementById('optimizeBtn').style.display = 'block';
-                document.getElementById('results').innerHTML = "Scan Loaded. Select Ball Location.";
+                document.getElementById('results').innerHTML = "Scan Loaded. Select Ball.";
             });
-
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `lidar_green.ply`;
-            link.click();
+            // Download for GitHub
+            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ply], {type:'text/plain'})); a.download="scan.ply"; a.click();
         }
 
-        // --- CORE PHYSICS PROCESSOR ---
+        // --- TERRAIN GENERATOR ---
         function processTerrain() {
             if (!lastGeo) return;
             if (meshSurface) scene.remove(meshSurface);
             const pos = lastGeo.attributes.position.array;
             const grid = {}, res = 0.05; 
-            
             for (let i = 0; i < pos.length; i += 3) {
                 const x = pos[i], y = pos[i+1], z = pos[i+2];
-                // Widened Y-filter to catch the floor regardless of phone height
-                if (y < -5 || y > 5) continue; 
+                if (y < -10 || y > 10) continue; 
                 const gx = Math.round(x / res), gz = Math.round(z / res);
                 const key = `${gx},${gz}`;
                 if (!grid[key]) grid[key] = [];
                 grid[key].push(y);
             }
-            
             let heightMap = {};
-            for (let key in grid) {
-                const h = grid[key].sort((a,b) => a-b);
-                heightMap[key] = h[Math.floor(h.length / 2)]; 
-            }
-
-            const passes = parseInt(document.getElementById('smoothSlider').value);
-            for(let p=0; p<passes; p++) {
-                let blurred = {};
-                for (let key in heightMap) {
-                    const [gx, gz] = key.split(',').map(Number);
-                    let sum = 0, weight = 0;
-                    for(let i=-1; i<=1; i++) {
-                        for(let j=-1; j<=1; j++) {
-                            const nKey = `${gx+i},${gz+j}`;
-                            if(heightMap[nKey] !== undefined) {
-                                const w = (i===0 && j===0) ? 4 : (i===0 || j===0 ? 2 : 1);
-                                sum += heightMap[nKey] * w; weight += w;
-                            }
-                        }
-                    }
-                    blurred[key] = sum / weight;
-                }
-                heightMap = blurred;
-            }
-
+            for (let key in grid) heightMap[key] = grid[key].sort((a,b)=>a-b)[Math.floor(grid[key].length/2)];
+            
             const meshGeo = new THREE.BufferGeometry();
             const verts = [], indices = [], keyToIdx = {};
             let idx = 0;
@@ -214,66 +165,45 @@
             }
             for (let key in heightMap) {
                 const [gx, gz] = key.split(',').map(Number);
-                const k1 = `${gx},${gz}`, k2 = `${gx+1},${gz}`, k3 = `${gx},${gz+1}`, k4 = `${gx+1},${gz+1}`;
+                const k1=`${gx},${gz}`, k2=`${gx+1},${gz}`, k3=`${gx},${gz+1}`, k4=`${gx+1},${gz+1}`;
                 if (keyToIdx[k1]!==undefined && keyToIdx[k2]!==undefined && keyToIdx[k3]!==undefined) indices.push(keyToIdx[k1], keyToIdx[k3], keyToIdx[k2]);
                 if (keyToIdx[k2]!==undefined && keyToIdx[k3]!==undefined && keyToIdx[k4]!==undefined) indices.push(keyToIdx[k2], keyToIdx[k3], keyToIdx[k4]);
             }
             meshGeo.setIndex(indices);
             meshGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
             meshGeo.computeVertexNormals();
-            meshSurface = new THREE.Mesh(meshGeo, new THREE.MeshStandardMaterial({ color: 0x28a745, roughness: 0.8, side: THREE.DoubleSide }));
+            meshSurface = new THREE.Mesh(meshGeo, new THREE.MeshStandardMaterial({ color: 0x28a745, side: THREE.DoubleSide }));
             scene.add(meshSurface);
         }
 
-        // --- THE PUTTING LOGIC ---
         function calculatePutt() {
             if (ballPathMesh) scene.remove(ballPathMesh);
-            if (flatRefLine) scene.remove(flatRefLine);
             pathData = [];
-            const ballStart = selectedPoints[0].clone();
-            const holePos = selectedPoints[1].clone();
-            const pwr = parseFloat(document.getElementById('pwrSlider').value);
-            const stimp = parseFloat(document.getElementById('stimpSlider').value);
-            const aimDegInput = parseFloat(document.getElementById('aimSlider').value);
-            
-            let vel = new THREE.Vector3().subVectors(holePos, ballStart);
-            vel.y = 0;
-            vel.applyAxisAngle(new THREE.Vector3(0, 1, 0), (aimDegInput * Math.PI) / 180);
-            vel.normalize().multiplyScalar(pwr);
-            
-            const dt = 0.012, g = 9.81, mu = (0.131 * g) * (10 / stimp); 
-            const ballRad = 0.021, cupRad = 0.054;
+            const ballStart = selectedPoints[0].clone(), holePos = selectedPoints[1].clone();
+            const pwr = parseFloat(document.getElementById('pwrSlider').value), stimp = parseFloat(document.getElementById('stimpSlider').value);
+            const aim = parseFloat(document.getElementById('aimSlider').value);
+            let vel = new THREE.Vector3().subVectors(holePos, ballStart).setY(0);
+            vel.applyAxisAngle(new THREE.Vector3(0, 1, 0), (aim * Math.PI) / 180).normalize().multiplyScalar(pwr);
+            const dt = 0.012, mu = (0.131 * 9.81) * (10 / stimp);
+            let curPos = ballStart.clone(), curVel = vel.clone();
 
-            let currentBallPos = ballStart.clone();
-            let currentVel = vel.clone();
-            let isMade = false;
-
-            for (let i = 0; i < 2800; i++) {
-                pathData.push(currentBallPos.clone());
-                raycaster.set(currentBallPos.clone().add(new THREE.Vector3(0, 1, 0)), new THREE.Vector3(0, -1, 0));
+            for (let i = 0; i < 2000; i++) {
+                pathData.push(curPos.clone());
+                raycaster.set(curPos.clone().add(new THREE.Vector3(0, 1, 0)), new THREE.Vector3(0, -1, 0));
                 const hits = raycaster.intersectObject(meshSurface);
                 if (hits.length > 0) {
                     const normal = hits[0].face.normal;
-                    let slopeAcc = new THREE.Vector3(0, -g, 0).projectOnPlane(normal).multiplyScalar(0.714);
-                    let frictionAcc = currentVel.clone().normalize().multiplyScalar(-mu);
-                    currentVel.add(slopeAcc.add(frictionAcc).multiplyScalar(dt));
-                    currentBallPos.y = hits[0].point.y + ballRad;
+                    let slope = new THREE.Vector3(0, -9.81, 0).projectOnPlane(normal).multiplyScalar(0.7);
+                    let friction = curVel.clone().normalize().multiplyScalar(-mu);
+                    curVel.add(slope.add(friction).multiplyScalar(dt));
+                    curPos.y = hits[0].point.y + 0.021;
                 }
-                currentBallPos.add(currentVel.clone().multiplyScalar(dt));
-                if (currentBallPos.distanceTo(holePos) < cupRad && currentVel.length() < 1.45) {
-                    isMade = true;
-                    pathData.push(holePos.clone());
-                    break;
-                }
-                if (currentVel.length() < 0.02) break;
+                curPos.add(curVel.clone().multiplyScalar(dt));
+                if (curVel.length() < 0.05) break;
             }
             const curve = new THREE.CatmullRomCurve3(pathData);
-            ballPathMesh = new THREE.Mesh(new THREE.TubeGeometry(curve, pathData.length, 0.015, 8, false), new THREE.MeshBasicMaterial({ color: isMade ? 0x00ff00 : 0xffaa00 }));
+            ballPathMesh = new THREE.Mesh(new THREE.TubeGeometry(curve, pathData.length, 0.01, 8, false), new THREE.MeshBasicMaterial({ color: 0xffaa00 }));
             scene.add(ballPathMesh);
-
-            // UI Data Update
-            const pinDistFt = (ballStart.distanceTo(holePos) * 3.28084).toFixed(1);
-            document.getElementById('results').innerHTML = `<div class="status-header"><span class="${isMade ? 'status-in' : 'status-out'}">${isMade ? 'CUP IN' : 'MISSED'}</span></div><div class="data-grid"><div class="data-item"><span class="label">Pin</span><span class="val">${pinDistFt}ft</span></div></div>`;
             ghostBall.visible = true;
         }
 
@@ -284,9 +214,8 @@
             const hits = raycaster.intersectObject(meshSurface);
             if (hits.length > 0) {
                 const p = hits[0].point; selectedPoints.push(p);
-                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.06), new THREE.MeshBasicMaterial({color: selectedPoints.length===1?0xffffff:0xff0000}));
-                dot.position.copy(p).add(new THREE.Vector3(0, 0.05, 0));
-                scene.add(dot); markers.push(dot);
+                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.05), new THREE.MeshBasicMaterial({color: selectedPoints.length===1?0xffffff:0xff0000}));
+                dot.position.copy(p); scene.add(dot); markers.push(dot);
                 if (selectedPoints.length === 2) calculatePutt();
             }
         }
@@ -299,6 +228,7 @@
             };
         });
 
+        document.getElementById('uiToggle').onclick = () => document.getElementById('ui').classList.toggle('visible');
         document.getElementById('resetBtn').onclick = () => {
             selectedPoints = []; markers.forEach(m => scene.remove(m)); markers = [];
             if(ballPathMesh) scene.remove(ballPathMesh); ghostBall.visible = false;
@@ -307,8 +237,7 @@
         function animate() {
             requestAnimationFrame(animate);
             if (ghostBall.visible && pathData.length > 0) {
-                let ghostIdx = (Math.floor(Date.now() / 20)) % pathData.length;
-                ghostBall.position.copy(pathData[ghostIdx]);
+                ghostBall.position.copy(pathData[(Math.floor(Date.now() / 20)) % pathData.length]);
             }
             controls.update(); renderer.render(scene, camera);
         }
