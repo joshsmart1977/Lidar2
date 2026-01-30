@@ -2,124 +2,394 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>Green Physics Pro - Manual Scan</title>
+    <title>Green Physics Pro - Analytics</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: -apple-system, sans-serif; color: white; }
-        #camera-view { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
-        
-        /* Reticle for scanning */
-        #crosshair { 
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 40px; height: 40px; border: 2px solid #28a745; border-radius: 50%; pointer-events: none;
-            box-shadow: 0 0 15px rgba(40, 167, 69, 0.5);
-        }
-        #crosshair::after { content: ''; position: absolute; top: 50%; left: 50%; width: 2px; height: 20px; background: #28a745; transform: translate(-50%, -50%); }
-        #crosshair::before { content: ''; position: absolute; top: 50%; left: 50%; width: 20px; height: 2px; background: #28a745; transform: translate(-50%, -50%); }
-
-        /* Permission Overlay */
-        #gate { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; box-sizing: border-box; }
-        
-        #hud { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.8); padding: 12px; border-radius: 8px; font-size: 11px; border: 1px solid #444; pointer-events: none; }
-        .data-val { color: #28a745; font-family: monospace; font-weight: bold; }
-
-        #controls { position: absolute; bottom: 40px; width: 100%; display: flex; justify-content: center; gap: 20px; }
-        .btn { background: #28a745; color: white; border: none; font-weight: bold; cursor: pointer; }
-        .btn-round { width: 70px; height: 70px; border-radius: 50%; font-size: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        .btn-large { padding: 15px 30px; border-radius: 30px; font-size: 16px; margin-top: 20px; }
+        #uiToggle { position: absolute; top: 10px; left: 10px; z-index: 100; background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        #ui { position: absolute; top: 55px; left: 10px; background: rgba(0,0,0,0.92); padding: 15px; border-radius: 12px; z-index: 10; width: 280px; pointer-events: none; border: 1px solid #444; display: none; }
+        #ui.visible { display: block; pointer-events: auto; }
+        .slider-group { margin: 12px 0; }
+        label { font-size: 10px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+        span.slider-val { float: right; color: #4CAF50; font-weight: bold; }
+        input[type="range"] { width: 100%; margin-top: 8px; accent-color: #28a745; cursor: pointer; }
+        #controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; gap: 10px; width: 90%; max-width: 400px; }
+        .btn { flex: 1; background: #28a745; color: white; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; text-align: center; font-size: 13px; }
+        #results { margin-top: 15px; border-top: 1px solid #333; padding-top: 10px; }
+        .status-header { text-align: center; margin-bottom: 10px; font-size: 1.1em; letter-spacing: 1px; }
+        .status-in { color: #00ff00; font-weight: bold; text-shadow: 0 0 10px rgba(0,255,0,0.4); }
+        .status-out { color: #ff4444; font-weight: bold; }
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .data-item { background: rgba(255,255,255,0.05); padding: 6px; border-radius: 6px; border: 1px solid #222; }
+        .label { color: #888; text-transform: uppercase; font-size: 8px; display: block; margin-bottom: 2px; }
+        .val { color: #fff; font-family: monospace; font-size: 11px; font-weight: bold; }
+        .legend { font-size: 9px; margin-top: 10px; line-height: 1.5; color: #666; font-style: italic; }
     </style>
 </head>
 <body>
-
-    <div id="gate">
-        <h2>Sensor Access Required</h2>
-        <p>To scan green slopes, we need access to your camera and motion sensors.</p>
-        <button id="startBtn" class="btn btn-large">ALLOW ACCESS</button>
+    <button id="uiToggle">MENU</button>
+    <div id="ui">
+        <h3 style="margin:0 0 10px 0;">Green Physics Pro</h3>
+        <div class="slider-group"><label>Mesh Smoothness: <span id="smoothVal" class="slider-val">5</span></label><input type="range" id="smoothSlider" min="1" max="12" step="1" value="5"></div>
+        <div class="slider-group"><label>Stimp (Speed): <span id="stimpVal" class="slider-val">11.0</span></label><input type="range" id="stimpSlider" min="7" max="14" step="0.1" value="11.0"></div>
+        <div class="slider-group"><label>Aim Offset: <span id="aimVal" class="slider-val">0.0</span>°</label><input type="range" id="aimSlider" min="-30" max="30" step="0.1" value="0.0"></div>
+        <div class="slider-group"><label>Putt Power: <span id="pwrVal" class="slider-val">3.2</span> m/s</label><input type="range" id="pwrSlider" min="0.5" max="12" step="0.05" value="3.2"></div>
+        <div id="results">Upload .PLY scan to start.</div>
+        <div class="legend"><span style="color:#ff00ff;">➔</span> Pink Arrow: Fall Line<br><span style="color:#ffffff;">---</span> White Dotted: Aim Line</div>
+    </div>
+    <div id="controls">
+        <label class="btn" style="cursor:pointer;">LOAD SCAN<input type="file" id="fileInput" accept=".ply" style="display:none;"></label>
+        <button id="optimizeBtn" class="btn" style="background:#007bff; display:none;">OPTIMIZE</button>
+        <button id="resetBtn" class="btn" style="background:#dc3545; display:none;">RESET</button>
     </div>
 
-    <video id="camera-view" autoplay playsinline></video>
-    <div id="crosshair"></div>
+    <script type="module">
+        import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
+        import { PLYLoader } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/loaders/PLYLoader.js';
+        import { OrbitControls } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/controls/OrbitControls.js';
 
-    <div id="hud">
-        SLOPE ANALYTICS<br>
-        Pitch (Front/Back): <span id="pitch" class="data-val">0.0°</span><br>
-        Roll (Left/Right): <span id="roll" class="data-val">0.0°</span><br>
-        Nodes Captured: <span id="count" class="data-val">0</span>
-    </div>
+        let scene, camera, renderer, controls, raycaster, mouse, meshSurface, lastGeo;
+        let selectedPoints = [], markers = [], ballPathMesh = null, fallLineArrow = null, flatRefLine = null;
+        let ghostBall = null, pathData = [];
 
-    <div id="controls" style="display: none;">
-        <button id="snapBtn" class="btn btn-round">SNAP</button>
-        <button id="doneBtn" class="btn btn-round" style="background:#007bff; display:none;">BUILD</button>
-    </div>
+        const uiPanel = document.getElementById('ui');
+        document.getElementById('uiToggle').onclick = () => uiPanel.classList.toggle('visible');
 
-    <script>
-        const gate = document.getElementById('gate');
-        const video = document.getElementById('camera-view');
-        const controls = document.getElementById('controls');
-        const pitchEl = document.getElementById('pitch');
-        const rollEl = document.getElementById('roll');
-        const countEl = document.getElementById('count');
-        
-        let capturedNodes = [];
-        let currentPitch = 0;
-        let currentRoll = 0;
+        init();
 
-        document.getElementById('startBtn').onclick = async () => {
-            try {
-                // 1. Request Camera
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment" } 
-                });
-                video.srcObject = stream;
-
-                // 2. Request Motion (iOS specific)
-                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                    const permission = await DeviceOrientationEvent.requestPermission();
-                    if (permission !== 'granted') {
-                        alert("Motion permission denied. Slope scanning will not work.");
-                    }
-                }
-
-                // 3. Start Listening
-                window.addEventListener('deviceorientation', handleOrientation);
-                
-                // 4. Show UI
-                gate.style.display = 'none';
-                controls.style.display = 'flex';
-            } catch (err) {
-                alert("Error: " + err.message);
-            }
-        };
-
-        function handleOrientation(e) {
-            // Beta is pitch (tilting forward/backward)
-            // Gamma is roll (tilting left/right)
-            currentPitch = e.beta || 0;
-            currentRoll = e.gamma || 0;
-            
-            pitchEl.innerText = currentPitch.toFixed(1) + "°";
-            rollEl.innerText = currentRoll.toFixed(1) + "°";
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 6, 12);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.body.appendChild(renderer.domElement);
+            controls = new OrbitControls(camera, renderer.domElement);
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const light = new THREE.DirectionalLight(0xffffff, 0.8);
+            light.position.set(5, 15, 10);
+            scene.add(light);
+            ghostBall = new THREE.Mesh(new THREE.SphereGeometry(0.021, 16, 16), new THREE.MeshBasicMaterial({color: 0xffffff}));
+            ghostBall.visible = false;
+            scene.add(ghostBall);
+            window.addEventListener('pointerdown', (e) => {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || uiPanel.contains(e.target) || !meshSurface) return;
+                onPick(e);
+            });
+            animate();
         }
 
-        document.getElementById('snapBtn').onclick = () => {
-            capturedNodes.push({
-                x: Math.sin(currentRoll * Math.PI / 180), // Simple projection
-                z: Math.sin(currentPitch * Math.PI / 180),
-                y: currentPitch / 10, // Elevation estimation
-                pitch: currentPitch,
-                roll: currentRoll
+        document.getElementById('fileInput').onchange = (e) => {
+            const loader = new PLYLoader();
+            loader.load(URL.createObjectURL(e.target.files[0]), (geo) => {
+                lastGeo = geo;
+                processTerrain();
+                document.getElementById('resetBtn').style.display = 'block';
+                document.getElementById('optimizeBtn').style.display = 'block';
+                document.getElementById('results').innerHTML = "Set ball start position.";
             });
+        };
 
-            countEl.innerText = capturedNodes.length;
-            if (capturedNodes.length >= 2) {
-                document.getElementById('doneBtn').style.display = 'block';
+        function processTerrain() {
+            if (!lastGeo) return;
+            if (meshSurface) scene.remove(meshSurface);
+            const pos = lastGeo.attributes.position.array;
+            const grid = {}, res = 0.05; 
+            for (let i = 0; i < pos.length; i += 3) {
+                const x = pos[i], y = pos[i+1], z = pos[i+2];
+                if (y < -3 || y > 3) continue; 
+                const gx = Math.round(x / res), gz = Math.round(z / res);
+                const key = `${gx},${gz}`;
+                if (!grid[key]) grid[key] = [];
+                grid[key].push(y);
             }
+            let heightMap = {};
+            for (let key in grid) {
+                const h = grid[key].sort((a,b) => a-b);
+                heightMap[key] = h[Math.floor(h.length / 2)]; 
+            }
+            let cleanMap = {};
+            for (let key in heightMap) {
+                const [gx, gz] = key.split(',').map(Number);
+                let sum = 0, count = 0;
+                for (let i = -1; i <= 1; i++) {
+                    for (let j = -1; j <= 1; j++) {
+                        if (i === 0 && j === 0) continue;
+                        const nKey = `${gx + i},${gz + j}`;
+                        if (heightMap[nKey] !== undefined) {
+                            sum += heightMap[nKey];
+                            count++;
+                        }
+                    }
+                }
+                const avgNeighbor = sum / count;
+                if (count > 0 && Math.abs(heightMap[key] - avgNeighbor) > 0.04) continue;
+                cleanMap[key] = heightMap[key];
+            }
+            heightMap = cleanMap;
+            for (let fillPass = 0; fillPass < 4; fillPass++) {
+                let newFills = {};
+                for (let key in heightMap) {
+                    const [gx, gz] = key.split(',').map(Number);
+                    for (let i = -1; i <= 1; i++) {
+                        for (let j = -1; j <= 1; j++) {
+                            const nKey = `${gx + i},${gz + j}`;
+                            if (heightMap[nKey] === undefined) {
+                                let sum = 0, count = 0;
+                                for (let ni = -1; ni <= 1; ni++) {
+                                    for (let nj = -1; nj <= 1; nj++) {
+                                        const sample = `${gx + i + ni},${gz + j + nj}`;
+                                        if (heightMap[sample] !== undefined) {
+                                            sum += heightMap[sample];
+                                            count++;
+                                        }
+                                    }
+                                }
+                                if (count > 2) newFills[nKey] = sum / count;
+                            }
+                        }
+                    }
+                }
+                heightMap = { ...heightMap, ...newFills };
+            }
+            const passes = parseInt(document.getElementById('smoothSlider').value);
+            for(let p=0; p<passes; p++) {
+                let blurred = {};
+                for (let key in heightMap) {
+                    const [gx, gz] = key.split(',').map(Number);
+                    let sum = 0, weight = 0;
+                    for(let i=-1; i<=1; i++) {
+                        for(let j=-1; j<=1; j++) {
+                            const nKey = `${gx+i},${gz+j}`;
+                            if(heightMap[nKey] !== undefined) {
+                                const w = (i===0 && j===0) ? 4 : (i===0 || j===0 ? 2 : 1);
+                                sum += heightMap[nKey] * w; weight += w;
+                            }
+                        }
+                    }
+                    blurred[key] = sum / weight;
+                }
+                heightMap = blurred;
+            }
+            const meshGeo = new THREE.BufferGeometry();
+            const verts = [], indices = [], keyToIdx = {};
+            let idx = 0;
+            for (let key in heightMap) {
+                const [gx, gz] = key.split(',').map(Number);
+                verts.push(gx * res, heightMap[key], gz * res);
+                keyToIdx[key] = idx++;
+            }
+            for (let key in heightMap) {
+                const [gx, gz] = key.split(',').map(Number);
+                const k1 = `${gx},${gz}`, k2 = `${gx+1},${gz}`, k3 = `${gx},${gz+1}`, k4 = `${gx+1},${gz+1}`;
+                if (keyToIdx[k1]!==undefined && keyToIdx[k2]!==undefined && keyToIdx[k3]!==undefined) indices.push(keyToIdx[k1], keyToIdx[k3], keyToIdx[k2]);
+                if (keyToIdx[k2]!==undefined && keyToIdx[k3]!==undefined && keyToIdx[k4]!==undefined) indices.push(keyToIdx[k2], keyToIdx[k3], keyToIdx[k4]);
+            }
+            meshGeo.setIndex(indices);
+            meshGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+            meshGeo.computeVertexNormals();
+            meshSurface = new THREE.Mesh(meshGeo, new THREE.MeshStandardMaterial({ color: 0x245432, roughness: 0.8, metalness: 0.0, side: THREE.DoubleSide }));
+            scene.add(meshSurface);
+        }
+
+        function drawFallLine(holePos) {
+            if (fallLineArrow) scene.remove(fallLineArrow);
+            raycaster.set(holePos.clone().add(new THREE.Vector3(0, 5, 0)), new THREE.Vector3(0, -1, 0));
+            const hits = raycaster.intersectObject(meshSurface);
+            if (hits.length > 0) {
+                const normal = hits[0].face.normal;
+                let downhill = new THREE.Vector3(0, -1, 0).projectOnPlane(normal).normalize();
+                const origin = holePos.clone().add(new THREE.Vector3(0, 0.1, 0)).add(downhill.clone().multiplyScalar(-0.4));
+                fallLineArrow = new THREE.ArrowHelper(downhill, origin, 0.8, 0xff00ff, 0.15, 0.1);
+                scene.add(fallLineArrow);
+            }
+        }
+
+        function autoCalculatePower() {
+            if (selectedPoints.length < 2) return;
+            const dist = selectedPoints[0].distanceTo(selectedPoints[1]);
+            const stimp = parseFloat(document.getElementById('stimpSlider').value);
+            const mu = (0.131 * 9.81) * (10 / stimp);
+            const requiredPower = Math.sqrt(2 * mu * (dist + 0.22));
+            document.getElementById('pwrSlider').value = requiredPower.toFixed(2);
+            document.getElementById('pwrVal').innerText = requiredPower.toFixed(2);
+        }
+
+        function calculatePutt() {
+            if (ballPathMesh) scene.remove(ballPathMesh);
+            if (flatRefLine) scene.remove(flatRefLine);
+            pathData = [];
+            const ballStart = selectedPoints[0].clone();
+            const holePos = selectedPoints[1].clone();
+            const pwr = parseFloat(document.getElementById('pwrSlider').value);
+            const stimp = parseFloat(document.getElementById('stimpSlider').value);
+            const aimDegInput = parseFloat(document.getElementById('aimSlider').value);
+            
+            let vel = new THREE.Vector3().subVectors(holePos, ballStart);
+            vel.y = 0;
+            // Negative = Left, Positive = Right
+            vel.applyAxisAngle(new THREE.Vector3(0, 1, 0), (aimDegInput * Math.PI) / 180);
+            vel.normalize().multiplyScalar(pwr);
+            
+            const dt = 0.012, g = 9.81, mu = (0.131 * g) * (10 / stimp); 
+            const ballRad = 0.021, cupRad = 0.054;
+            const flatDistM = (pwr * pwr) / (2 * mu);
+            const flatDistFt = (flatDistM * 3.28084).toFixed(1);
+
+            const flatEnd = ballStart.clone().add(vel.clone().normalize().multiplyScalar(flatDistM));
+            const flatPoints = [
+                ballStart.clone().add(new THREE.Vector3(0, 0.08, 0)),
+                flatEnd.add(new THREE.Vector3(0, 0.08, 0))
+            ];
+            const flatGeo = new THREE.BufferGeometry().setFromPoints(flatPoints);
+            flatRefLine = new THREE.Line(flatGeo, new THREE.LineDashedMaterial({ color: 0xffffff, dashSize: 0.1, gapSize: 0.05 }));
+            flatRefLine.computeLineDistances();
+            scene.add(flatRefLine);
+
+            let currentBallPos = ballStart.clone();
+            let currentVel = vel.clone();
+            let isMade = false;
+
+            for (let i = 0; i < 2800; i++) {
+                pathData.push(currentBallPos.clone());
+                raycaster.set(currentBallPos.clone().add(new THREE.Vector3(0, 1, 0)), new THREE.Vector3(0, -1, 0));
+                const hits = raycaster.intersectObject(meshSurface);
+                if (hits.length > 0) {
+                    const normal = hits[0].face.normal;
+                    let slopeAcc = new THREE.Vector3(0, -g, 0).projectOnPlane(normal).multiplyScalar(0.714);
+                    let frictionAcc = currentVel.clone().normalize().multiplyScalar(-mu);
+                    currentVel.add(slopeAcc.add(frictionAcc).multiplyScalar(dt));
+                    currentBallPos.y = hits[0].point.y + ballRad;
+                }
+                currentBallPos.add(currentVel.clone().multiplyScalar(dt));
+                if (currentBallPos.distanceTo(holePos) < cupRad && currentVel.length() < 1.45) {
+                    isMade = true;
+                    pathData.push(holePos.clone());
+                    break;
+                }
+                if (currentVel.length() < 0.02) break;
+            }
+            const curve = new THREE.CatmullRomCurve3(pathData);
+            ballPathMesh = new THREE.Mesh(new THREE.TubeGeometry(curve, pathData.length, 0.015, 8, false), new THREE.MeshBasicMaterial({ color: isMade ? 0x00ff00 : 0xffaa00 }));
+            scene.add(ballPathMesh);
+
+            const finalPos = pathData[pathData.length - 1];
+            const pinDistFt = (ballStart.distanceTo(holePos) * 3.28084).toFixed(1);
+            let totalTravelM = 0;
+            for(let i=1; i<pathData.length; i++) totalTravelM += pathData[i].distanceTo(pathData[i-1]);
+            const projDistFt = (totalTravelM * 3.28084).toFixed(1);
+            const targetVec = new THREE.Vector3().subVectors(holePos, ballStart).setY(0);
+            const distToHoleM = targetVec.length();
+            
+            const targetLineNorm = targetVec.clone().normalize();
+            // PERPENDICULAR: Oriented so Positive = Right
+            const perpLine = new THREE.Vector3(targetLineNorm.z, 0, -targetLineNorm.x);
+            const ballToFinalVec = new THREE.Vector3().subVectors(finalPos, ballStart).setY(0);
+            
+            // CONVENTION: Negative = Left, Positive = Right
+            const latOffM = ballToFinalVec.dot(perpLine); 
+            const sideRes = latOffM >= 0 ? "L" : "R";
+            const resInches = (Math.abs(latOffM) * 39.3701).toFixed(1);
+
+            // AIM DISPLAY: Negative = L, Positive = R
+            const sideAim = aimDegInput >= 0 ? (aimDegInput == 0 ? "" : "L") : "R";
+            const aimInches = (Math.abs(Math.tan(aimDegInput * Math.PI / 180) * distToHoleM) * 39.3701).toFixed(1);
+            const degRes = (targetLineNorm.angleTo(ballToFinalVec.normalize()) * (180 / Math.PI)).toFixed(1);
+
+            document.getElementById('results').innerHTML = `
+                <div class="status-header"><span class="${isMade ? 'status-in' : 'status-out'}">${isMade ? '● CUP IN' : '● MISSED'}</span></div>
+                <div class="data-grid">
+                    <div class="data-item"><span class="label">Pin Dist</span><span class="val">${pinDistFt} ft</span></div>
+                    <div class="data-item"><span class="label">Proj Dist</span><span class="val">${projDistFt} ft</span></div>
+                    <div class="data-item"><span class="label">Flat Dist</span><span class="val">${flatDistFt} ft</span></div>
+                    <div class="data-item"><span class="label">Aim Angle</span><span class="val">${Math.abs(aimDegInput).toFixed(1)}°</span></div>
+                    <div class="data-item"><span class="label">Aim Offset</span><span class="val">${aimInches}" ${sideAim}</span></div>
+                    <div class="data-item"><span class="label">Proj Offset</span><span class="val">${resInches}" ${sideRes}</span></div>
+                    <div class="data-item"><span class="label">Proj Angle</span><span class="val">${degRes}°</span></div>
+                </div>`;
+            ghostBall.position.copy(pathData[0]); ghostBall.visible = true;
+        }
+
+        function optimizePutt() {
+            if (selectedPoints.length < 2 || pathData.length === 0) return;
+            const ballStart = selectedPoints[0];
+            const holePos = selectedPoints[1];
+            const finalPos = pathData[pathData.length - 1];
+
+            const targetDir = new THREE.Vector3().subVectors(holePos, ballStart).setY(0).normalize();
+            const perpLine = new THREE.Vector3(targetDir.z, 0, -targetDir.x);
+            const ballToFinal = new THREE.Vector3().subVectors(finalPos, ballStart).setY(0);
+            
+            const latError = ballToFinal.dot(perpLine); 
+
+            let currentAim = parseFloat(document.getElementById('aimSlider').value);
+            // If missed Right (Positive), subtract from angle to aim more Left (Negative)
+            const aimCorrection = latError * 11.5; 
+            const nextAim = Math.max(-30, Math.min(30, currentAim - aimCorrection));
+            document.getElementById('aimSlider').value = nextAim.toFixed(2);
+            document.getElementById('aimVal').innerText = nextAim.toFixed(2);
+
+            const idealTravelDist = ballStart.distanceTo(holePos) + 0.25; 
+            let actualTravel = 0;
+            for(let i = 1; i < pathData.length; i++) actualTravel += pathData[i].distanceTo(pathData[i-1]);
+            const distError = idealTravelDist - actualTravel;
+            
+            let currentPwr = parseFloat(document.getElementById('pwrSlider').value);
+            const pwrCorrection = distError * 0.45;
+            const nextPwr = Math.max(0.5, Math.min(12, currentPwr + pwrCorrection));
+            document.getElementById('pwrSlider').value = nextPwr.toFixed(2);
+            document.getElementById('pwrVal').innerText = nextPwr.toFixed(2);
+
+            calculatePutt();
+        }
+
+        function onPick(e) {
+            if (selectedPoints.length >= 2) return;
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1; mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const hits = raycaster.intersectObject(meshSurface);
+            if (hits.length > 0) {
+                const p = hits[0].point; selectedPoints.push(p);
+                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.06), new THREE.MeshBasicMaterial({color: selectedPoints.length===1?0xffffff:0xff0000}));
+                dot.position.copy(p).add(new THREE.Vector3(0, 0.05, 0));
+                scene.add(dot); markers.push(dot);
+                if (selectedPoints.length === 2) { drawFallLine(p); autoCalculatePower(); calculatePutt(); }
+            }
+        }
+
+        ['smoothSlider', 'stimpSlider', 'pwrSlider', 'aimSlider'].forEach(id => {
+            document.getElementById(id).oninput = (e) => {
+                document.getElementById(id.replace('Slider', 'Val')).innerText = e.target.value;
+                if (id === 'smoothSlider') processTerrain();
+                if (id === 'stimpSlider' && selectedPoints.length === 2) autoCalculatePower();
+                if (selectedPoints.length === 2) calculatePutt();
+            };
+        });
+
+        document.getElementById('optimizeBtn').onclick = optimizePutt;
+        document.getElementById('resetBtn').onclick = () => {
+            selectedPoints = []; markers.forEach(m => scene.remove(m)); markers = [];
+            if(ballPathMesh) scene.remove(ballPathMesh); if(flatRefLine) scene.remove(flatRefLine); if(fallLineArrow) scene.remove(fallLineArrow);
+            ghostBall.visible = false; 
+            
+            document.getElementById('aimSlider').value = 0.0;
+            document.getElementById('aimVal').innerText = "0.0";
+            document.getElementById('pwrSlider').value = 3.2;
+            document.getElementById('pwrVal').innerText = "3.2";
+            
+            document.getElementById('results').innerHTML = "Select Ball location.";
         };
 
-        document.getElementById('doneBtn').onclick = () => {
-            alert(`Captured ${capturedNodes.length} elevation points. Building physics mesh...`);
-            // This data can now be fed into processTerrain() from your original code
-            console.log(capturedNodes);
-        };
+        function animate() {
+            requestAnimationFrame(animate);
+            if (ghostBall.visible && pathData.length > 0) {
+                let ghostIdx = (Math.floor(Date.now() / 20)) % pathData.length;
+                ghostBall.position.copy(pathData[ghostIdx]);
+            }
+            controls.update(); renderer.render(scene, camera);
+        }
     </script>
 </body>
 </html>
