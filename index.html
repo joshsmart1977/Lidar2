@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Golf Pro - Ultimate Sequential Trainer</title>
+    <title>AI Golf Pro - Ultimate Trainer</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
     <style>
@@ -43,6 +43,10 @@
             <div class="stat-label">Status</div>
             <div class="stat-value" id="activeStateDisplay" style="color: #2ecc71; font-size: 1.1em;">READY</div>
         </div>
+        <div class="stat-item">
+            <div class="stat-label">Time</div>
+            <div class="stat-value" id="timeDisplay" style="font-size: 1em;">0.00</div>
+        </div>
     </div>
 
     <div class="dual-hud">
@@ -58,10 +62,9 @@
         <div class="row">
             <button class="btn-live" id="liveBtn">GO LIVE</button>
             <input type="file" id="videoInput" accept="video/*" style="width: 150px;">
-            <button id="playPauseBtn">Play/Pause</button>
+            <button id="playPauseBtn" style="background:#0984e3">Play/Pause</button>
         </div>
         <div class="row">
-            <span style="color:#888; font-size: 0.8em; align-self: center;">SCRUB:</span>
             <button class="btn-jump" onclick="jumpFrames(-16)">-16</button>
             <button class="btn-jump" onclick="jumpFrames(-4)">-4</button>
             <button class="btn-jump" onclick="jumpFrames(-1)">-1</button>
@@ -74,12 +77,12 @@
             <button id="undoBtn" style="background:#e67e22">UNDO</button>
             <button class="btn-save" id="saveBtn">SAVE</button>
             <button class="btn-load">LOAD<input type="file" id="loadInput" accept=".json"></button>
-            <button onclick="resetSwingCount()" style="background:#333">CLR</button>
+            <button onclick="resetEverything()" style="background:#333">RESET</button>
         </div>
     </div>
 
     <div class="container">
-        <video id="inputVideo" playsinline muted autoplay></video>
+        <video id="inputVideo" playsinline muted crossorigin="anonymous"></video>
         <canvas id="outputCanvas"></canvas>
     </div>
 
@@ -110,26 +113,22 @@
                 processSequentialLogic(lastVec);
             }
             ctx.restore();
+            document.getElementById('timeDisplay').innerText = video.currentTime.toFixed(2);
         });
 
         async function startLive() {
+            isLive = true;
+            video.src = "";
+            video.srcObject = null;
             try {
-                // Clear existing video sources to prevent conflicts
-                video.pause();
-                video.src = "";
-                video.srcObject = null;
-                
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } 
                 });
                 video.srcObject = stream;
-                isLive = true;
                 canvas.classList.add('mirrored');
                 video.play();
                 runAILoop();
-            } catch (err) {
-                alert("Camera Error: Ensure you are on HTTPS (GitHub Pages) and granted permission.");
-            }
+            } catch (err) { alert("Camera Error. Use Safari + HTTPS."); }
         }
 
         async function runAILoop() {
@@ -198,19 +197,21 @@
             canvas.classList.remove('mirrored');
             video.srcObject = null;
             video.src = URL.createObjectURL(e.target.files[0]);
-            video.play();
-            runAILoop();
+            video.load(); 
+            // Aggressive play attempt for mobile
+            setTimeout(() => { video.play().then(() => runAILoop()).catch(e => console.log("Play blocked")); }, 500);
         };
 
         document.getElementById('playPauseBtn').onclick = () => { 
-            if(video.paused){ video.play(); runAILoop(); } else { video.pause(); } 
+            if(video.paused){ video.play().then(() => runAILoop()); } else { video.pause(); } 
         };
 
         function jumpFrames(n) { 
             isLive = false;
             video.pause(); 
             video.currentTime += (n/30); 
-            pose.send({image:video}); 
+            // Manual AI trigger for scrubbing
+            setTimeout(() => pose.send({image:video}), 10);
         }
 
         function setStage(s) { 
@@ -228,10 +229,16 @@
         };
         document.getElementById('loadInput').onchange = (e) => {
             const reader = new FileReader();
-            reader.onload = (ev) => { dataset = JSON.parse(ev.target.result); alert("Training Data Loaded!"); };
+            reader.onload = (ev) => { dataset = JSON.parse(ev.target.result); alert("Loaded!"); };
             reader.readAsText(e.target.files[0]);
         };
-        function resetSwingCount() { swingCounter = 0; document.getElementById('swingCount').innerText = 0; }
+        function resetEverything() { 
+            swingCounter = 0; 
+            document.getElementById('swingCount').innerText = 0;
+            stages.forEach(s => dataset[s] = []);
+            activeSwingIdx = -1;
+            alert("Dataset Cleared!");
+        }
         setStage('setup');
     </script>
 </body>
