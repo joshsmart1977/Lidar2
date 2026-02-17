@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Golf Pro - Ultimate Trainer</title>
+    <title>AI Golf Pro - Ultimate Sequential Trainer</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
     <style>
@@ -17,6 +17,12 @@
         .hud-card.active-tab { border-color: #0984e3; background: #1a2a3a; opacity: 1; }
         .hud-card.highest { border-color: #2ecc71 !important; background: #1b4d2e !important; box-shadow: 0 0 10px rgba(46, 204, 113, 0.4); opacity: 1; }
         .score-val { font-size: 1.1em; font-weight: bold; }
+        
+        /* New Result Training UI */
+        .result-panel { background: #1a1a1a; padding: 15px; border-radius: 12px; margin-top: 10px; border: 1px solid #00d2ff; display: none; }
+        .selector-group { margin: 10px 0; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+        select { padding: 8px; border-radius: 5px; background: #333; color: white; border: 1px solid #555; }
+        
         .controls { background: #1e1e1e; padding: 12px; border-radius: 12px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #333; }
         .row { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: 100%; }
         .container { position: relative; display: inline-block; background: #000; border-radius: 8px; overflow: hidden; border: 1px solid #444; width: 100%; max-width: 800px; }
@@ -30,6 +36,7 @@
         .btn-jump { background: #34495e; min-width: 40px; }
         .btn-load { background: #8e44ad; position: relative; overflow: hidden; }
         .btn-load input { position: absolute; opacity: 0; right: 0; top: 0; cursor: pointer; width: 100%; height: 100%; }
+        .btn-result { background: #f39c12; color: black; }
     </style>
 </head>
 <body>
@@ -42,10 +49,6 @@
         <div class="stat-item">
             <div class="stat-label">Status</div>
             <div class="stat-value" id="activeStateDisplay" style="color: #2ecc71; font-size: 1.1em;">READY</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-label">Time</div>
-            <div class="stat-value" id="timeDisplay" style="font-size: 1em;">0.00</div>
         </div>
     </div>
 
@@ -62,9 +65,11 @@
         <div class="row">
             <button class="btn-live" id="liveBtn">GO LIVE</button>
             <input type="file" id="videoInput" accept="video/*" style="width: 150px;">
-            <button id="playPauseBtn" style="background:#0984e3">Play/Pause</button>
+            <button id="playPauseBtn">Play/Pause</button>
+            <button class="btn-result" onclick="toggleResultPanel()">TRAIN RESULTS</button>
         </div>
         <div class="row">
+            <span style="color:#888; font-size: 0.8em; align-self: center;">SCRUB:</span>
             <button class="btn-jump" onclick="jumpFrames(-16)">-16</button>
             <button class="btn-jump" onclick="jumpFrames(-4)">-4</button>
             <button class="btn-jump" onclick="jumpFrames(-1)">-1</button>
@@ -77,12 +82,26 @@
             <button id="undoBtn" style="background:#e67e22">UNDO</button>
             <button class="btn-save" id="saveBtn">SAVE</button>
             <button class="btn-load">LOAD<input type="file" id="loadInput" accept=".json"></button>
-            <button onclick="resetEverything()" style="background:#333">RESET</button>
+            <button onclick="resetSwingCount()" style="background:#333">CLR</button>
+        </div>
+    </div>
+
+    <div id="resultPanel" class="result-panel">
+        <h3 style="margin-top:0">Swing Result Training</h3>
+        <div class="selector-group">
+            <label>Select Swing #: </label>
+            <select id="swingSelector" onchange="loadExistingResult()"></select>
+        </div>
+        <div class="selector-group">
+            <select id="resX"><option value="straight">Straight</option><option value="pulled">Pulled</option><option value="pushed">Pushed</option></select>
+            <select id="resY"><option value="center">Center</option><option value="skulled">Skulled</option><option value="popped">Popped</option></select>
+            <select id="resCurve"><option value="neutral">Neutral</option><option value="hooked">Hooked</option><option value="sliced">Sliced</option></select>
+            <button class="btn-save" onclick="saveSwingResult()">APPLY TO SWING</button>
         </div>
     </div>
 
     <div class="container">
-        <video id="inputVideo" playsinline muted crossorigin="anonymous"></video>
+        <video id="inputVideo" playsinline muted autoplay></video>
         <canvas id="outputCanvas"></canvas>
     </div>
 
@@ -93,6 +112,12 @@
         const stages = ['setup', 'backswing', 'top', 'downswing', 'contact', 'follow'];
         let currentTrainingStage = 'setup', dataset = {}, activeSwingIdx = -1, swingCounter = 0;
         let lastVec = null, setupStartTime = null, isLive = false;
+        
+        // Data structure for swing results
+        let swingResults = []; 
+        let currentSwingData = { downswing: null, contact: null, follow: null };
+        let peaks = { downswing: 0, contact: 0, follow: 0 };
+
         stages.forEach(s => dataset[s] = []);
 
         const trackedIDs = [11, 12, 14, 16, 18, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
@@ -113,22 +138,20 @@
                 processSequentialLogic(lastVec);
             }
             ctx.restore();
-            document.getElementById('timeDisplay').innerText = video.currentTime.toFixed(2);
         });
 
         async function startLive() {
-            isLive = true;
-            video.src = "";
-            video.srcObject = null;
             try {
+                video.pause(); video.src = ""; video.srcObject = null;
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } 
                 });
                 video.srcObject = stream;
+                isLive = true;
                 canvas.classList.add('mirrored');
                 video.play();
                 runAILoop();
-            } catch (err) { alert("Camera Error. Use Safari + HTTPS."); }
+            } catch (err) { alert("Camera Error."); }
         }
 
         async function runAILoop() {
@@ -169,21 +192,82 @@
                 document.getElementById(`val-${l}`).innerText = dataset[l].length > 0 ? `${probs[l].toFixed(0)}%` : "0%";
             });
 
+            // Capture Frame Points if they are at peak percentages during active swing
+            if(activeSwingIdx >= 3) { // Downswing, Contact, or Follow
+                let stageName = stages[activeSwingIdx];
+                if(probs[stageName] > peaks[stageName]) {
+                    peaks[stageName] = probs[stageName];
+                    currentSwingData[stageName] = [...vec];
+                }
+            }
+
             if (activeSwingIdx === -1) {
                 if (currentLeader === 'setup') {
                     if (!setupStartTime) setupStartTime = Date.now();
                     let elapsed = Date.now() - setupStartTime;
                     document.getElementById('activeStateDisplay').innerText = `HOLD ${(elapsed/1000).toFixed(1)}s`;
-                    if (elapsed >= 1000) { activeSwingIdx = 0; setupStartTime = null; }
+                    if (elapsed >= 1000) { 
+                        activeSwingIdx = 0; setupStartTime = null; 
+                        // Reset peak tracker for new swing
+                        peaks = { downswing: 0, contact: 0, follow: 0 };
+                        currentSwingData = { downswing: null, contact: null, follow: null };
+                    }
                 } else { setupStartTime = null; document.getElementById('activeStateDisplay').innerText = "READY"; }
             } else if (activeSwingIdx < 5) {
                 const nextLabel = stages[activeSwingIdx + 1];
                 if (probs[nextLabel] > probs[stages[activeSwingIdx]] || currentLeader === nextLabel) activeSwingIdx++;
             } else if (activeSwingIdx === 5) {
-                if (probs.follow < 20 || currentLeader === 'setup') { swingCounter++; document.getElementById('swingCount').innerText = swingCounter; activeSwingIdx = -1; }
+                if (probs.follow < 20 || currentLeader === 'setup') { 
+                    finalizeSwing();
+                    activeSwingIdx = -1; 
+                }
             }
             stages.forEach((l, idx) => document.getElementById(`hud-${l}`).classList.toggle('highest', idx === activeSwingIdx));
             if (activeSwingIdx !== -1) document.getElementById('activeStateDisplay').innerText = stages[activeSwingIdx].toUpperCase();
+        }
+
+        function finalizeSwing() {
+            swingCounter++;
+            document.getElementById('swingCount').innerText = swingCounter;
+            
+            // Record swing result placeholder + points
+            swingResults.push({
+                id: swingCounter,
+                points: { ...currentSwingData },
+                result: { x: 'straight', y: 'center', curve: 'neutral' }
+            });
+            updateSwingSelector();
+        }
+
+        function updateSwingSelector() {
+            const sel = document.getElementById('swingSelector');
+            sel.innerHTML = swingResults.map(s => `<option value="${s.id}">Swing ${s.id}</option>`).join('');
+        }
+
+        function toggleResultPanel() {
+            const p = document.getElementById('resultPanel');
+            p.style.display = (p.style.display === 'block') ? 'none' : 'block';
+        }
+
+        function saveSwingResult() {
+            const id = parseInt(document.getElementById('swingSelector').value);
+            const swing = swingResults.find(s => s.id === id);
+            if(swing) {
+                swing.result.x = document.getElementById('resX').value;
+                swing.result.y = document.getElementById('resY').value;
+                swing.result.curve = document.getElementById('resCurve').value;
+                alert(`Swing ${id} updated!`);
+            }
+        }
+
+        function loadExistingResult() {
+            const id = parseInt(document.getElementById('swingSelector').value);
+            const swing = swingResults.find(s => s.id === id);
+            if(swing) {
+                document.getElementById('resX').value = swing.result.x;
+                document.getElementById('resY').value = swing.result.y;
+                document.getElementById('resCurve').value = swing.result.curve;
+            }
         }
 
         function drawFilteredConnectors(context, landmarks) {
@@ -193,25 +277,18 @@
 
         document.getElementById('liveBtn').onclick = startLive;
         document.getElementById('videoInput').onchange = (e) => {
-            isLive = false;
-            canvas.classList.remove('mirrored');
-            video.srcObject = null;
-            video.src = URL.createObjectURL(e.target.files[0]);
-            video.load(); 
-            // Aggressive play attempt for mobile
-            setTimeout(() => { video.play().then(() => runAILoop()).catch(e => console.log("Play blocked")); }, 500);
+            isLive = false; canvas.classList.remove('mirrored');
+            video.srcObject = null; video.src = URL.createObjectURL(e.target.files[0]);
+            video.play(); runAILoop();
         };
 
         document.getElementById('playPauseBtn').onclick = () => { 
-            if(video.paused){ video.play().then(() => runAILoop()); } else { video.pause(); } 
+            if(video.paused){ video.play(); runAILoop(); } else { video.pause(); } 
         };
 
         function jumpFrames(n) { 
-            isLive = false;
-            video.pause(); 
-            video.currentTime += (n/30); 
-            // Manual AI trigger for scrubbing
-            setTimeout(() => pose.send({image:video}), 10);
+            isLive = false; video.pause(); video.currentTime += (n/30); 
+            pose.send({image:video}); 
         }
 
         function setStage(s) { 
@@ -223,21 +300,38 @@
 
         document.getElementById('trainBtn').onclick = () => { if (lastVec) dataset[currentTrainingStage].push([...lastVec]); };
         document.getElementById('undoBtn').onclick = () => { if (dataset[currentTrainingStage].length > 0) dataset[currentTrainingStage].pop(); };
+        
         document.getElementById('saveBtn').onclick = () => {
-            const blob = new Blob([JSON.stringify(dataset)], {type: 'application/json'});
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `golf_data.json`; a.click();
+            const fullData = { poseDataset: dataset, swingResults: swingResults };
+            const blob = new Blob([JSON.stringify(fullData)], {type: 'application/json'});
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); 
+            a.download = `golf_master_data.json`; a.click();
         };
+
         document.getElementById('loadInput').onchange = (e) => {
             const reader = new FileReader();
-            reader.onload = (ev) => { dataset = JSON.parse(ev.target.result); alert("Loaded!"); };
+            reader.onload = (ev) => { 
+                const imported = JSON.parse(ev.target.result);
+                if(imported.poseDataset) {
+                    dataset = imported.poseDataset;
+                    swingResults = imported.swingResults || [];
+                    swingCounter = swingResults.length;
+                    document.getElementById('swingCount').innerText = swingCounter;
+                    updateSwingSelector();
+                    alert("Training & Results Loaded!"); 
+                } else {
+                    dataset = imported; // Fallback for old files
+                    alert("Pose Training Loaded!");
+                }
+            };
             reader.readAsText(e.target.files[0]);
         };
-        function resetEverything() { 
+
+        function resetSwingCount() { 
             swingCounter = 0; 
-            document.getElementById('swingCount').innerText = 0;
-            stages.forEach(s => dataset[s] = []);
-            activeSwingIdx = -1;
-            alert("Dataset Cleared!");
+            swingResults = [];
+            document.getElementById('swingCount').innerText = 0; 
+            updateSwingSelector();
         }
         setStage('setup');
     </script>
