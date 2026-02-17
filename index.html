@@ -18,7 +18,6 @@
         .hud-card.highest { border-color: #2ecc71 !important; background: #1b4d2e !important; box-shadow: 0 0 10px rgba(46, 204, 113, 0.4); opacity: 1; }
         .score-val { font-size: 1.1em; font-weight: bold; }
         
-        /* New Result Training UI */
         .result-panel { background: #1a1a1a; padding: 15px; border-radius: 12px; margin-top: 10px; border: 1px solid #00d2ff; display: none; }
         .selector-group { margin: 10px 0; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
         select { padding: 8px; border-radius: 5px; background: #333; color: white; border: 1px solid #555; }
@@ -101,7 +100,7 @@
     </div>
 
     <div class="container">
-        <video id="inputVideo" playsinline muted autoplay></video>
+        <video id="inputVideo" crossorigin="anonymous" playsinline muted></video>
         <canvas id="outputCanvas"></canvas>
     </div>
 
@@ -113,7 +112,6 @@
         let currentTrainingStage = 'setup', dataset = {}, activeSwingIdx = -1, swingCounter = 0;
         let lastVec = null, setupStartTime = null, isLive = false;
         
-        // Data structure for swing results
         let swingResults = []; 
         let currentSwingData = { downswing: null, contact: null, follow: null };
         let peaks = { downswing: 0, contact: 0, follow: 0 };
@@ -127,7 +125,8 @@
         pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
 
         pose.onResults((results) => {
-            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.width = video.videoWidth || 640; 
+            canvas.height = video.videoHeight || 480;
             ctx.save();
             if(isLive) { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
             ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
@@ -149,14 +148,16 @@
                 video.srcObject = stream;
                 isLive = true;
                 canvas.classList.add('mirrored');
-                video.play();
+                video.play().catch(e => console.log("Live Start Interrupted"));
                 runAILoop();
-            } catch (err) { alert("Camera Error."); }
+            } catch (err) { alert("Camera Error: Check permissions."); }
         }
 
         async function runAILoop() {
             if (!video.paused || isLive) {
-                await pose.send({image: video});
+                if (video.readyState >= 2) {
+                    await pose.send({image: video});
+                }
                 requestAnimationFrame(runAILoop);
             }
         }
@@ -192,8 +193,7 @@
                 document.getElementById(`val-${l}`).innerText = dataset[l].length > 0 ? `${probs[l].toFixed(0)}%` : "0%";
             });
 
-            // Capture Frame Points if they are at peak percentages during active swing
-            if(activeSwingIdx >= 3) { // Downswing, Contact, or Follow
+            if(activeSwingIdx >= 3) { 
                 let stageName = stages[activeSwingIdx];
                 if(probs[stageName] > peaks[stageName]) {
                     peaks[stageName] = probs[stageName];
@@ -208,7 +208,6 @@
                     document.getElementById('activeStateDisplay').innerText = `HOLD ${(elapsed/1000).toFixed(1)}s`;
                     if (elapsed >= 1000) { 
                         activeSwingIdx = 0; setupStartTime = null; 
-                        // Reset peak tracker for new swing
                         peaks = { downswing: 0, contact: 0, follow: 0 };
                         currentSwingData = { downswing: null, contact: null, follow: null };
                     }
@@ -222,15 +221,16 @@
                     activeSwingIdx = -1; 
                 }
             }
-            stages.forEach((l, idx) => document.getElementById(`hud-${l}`).classList.toggle('highest', idx === activeSwingIdx));
+            stages.forEach((l, idx) => {
+                const card = document.getElementById(`hud-${l}`);
+                if(card) card.classList.toggle('highest', idx === activeSwingIdx);
+            });
             if (activeSwingIdx !== -1) document.getElementById('activeStateDisplay').innerText = stages[activeSwingIdx].toUpperCase();
         }
 
         function finalizeSwing() {
             swingCounter++;
             document.getElementById('swingCount').innerText = swingCounter;
-            
-            // Record swing result placeholder + points
             swingResults.push({
                 id: swingCounter,
                 points: { ...currentSwingData },
@@ -256,7 +256,7 @@
                 swing.result.x = document.getElementById('resX').value;
                 swing.result.y = document.getElementById('resY').value;
                 swing.result.curve = document.getElementById('resCurve').value;
-                alert(`Swing ${id} updated!`);
+                alert(`Swing ${id} saved!`);
             }
         }
 
@@ -276,19 +276,39 @@
         }
 
         document.getElementById('liveBtn').onclick = startLive;
+        
         document.getElementById('videoInput').onchange = (e) => {
-            isLive = false; canvas.classList.remove('mirrored');
-            video.srcObject = null; video.src = URL.createObjectURL(e.target.files[0]);
-            video.play(); runAILoop();
+            const file = e.target.files[0];
+            if (file) {
+                isLive = false;
+                canvas.classList.remove('mirrored');
+                video.srcObject = null;
+                const url = URL.createObjectURL(file);
+                video.src = url;
+                video.load(); // Force load
+                video.play().then(() => runAILoop()).catch(err => {
+                    console.log("Playback error, try clicking play manually.");
+                });
+            }
         };
 
         document.getElementById('playPauseBtn').onclick = () => { 
-            if(video.paused){ video.play(); runAILoop(); } else { video.pause(); } 
+            if(video.paused){ 
+                video.play().then(() => runAILoop()).catch(e => console.log("Manual play failed"));
+            } else { 
+                video.pause(); 
+            } 
         };
 
         function jumpFrames(n) { 
-            isLive = false; video.pause(); video.currentTime += (n/30); 
-            pose.send({image:video}); 
+            isLive = false;
+            video.pause(); 
+            video.currentTime += (n/30); 
+            // Wait for video to seek before sending to pose
+            video.onseeked = () => {
+                pose.send({image:video});
+                video.onseeked = null;
+            };
         }
 
         function setStage(s) { 
@@ -304,8 +324,10 @@
         document.getElementById('saveBtn').onclick = () => {
             const fullData = { poseDataset: dataset, swingResults: swingResults };
             const blob = new Blob([JSON.stringify(fullData)], {type: 'application/json'});
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); 
-            a.download = `golf_master_data.json`; a.click();
+            const a = document.createElement('a'); 
+            a.href = URL.createObjectURL(blob); 
+            a.download = `golf_master_data.json`; 
+            a.click();
         };
 
         document.getElementById('loadInput').onchange = (e) => {
@@ -318,18 +340,17 @@
                     swingCounter = swingResults.length;
                     document.getElementById('swingCount').innerText = swingCounter;
                     updateSwingSelector();
-                    alert("Training & Results Loaded!"); 
+                    alert("Master Data Loaded!"); 
                 } else {
-                    dataset = imported; // Fallback for old files
-                    alert("Pose Training Loaded!");
+                    dataset = imported;
+                    alert("Legacy Pose Data Loaded!");
                 }
             };
             reader.readAsText(e.target.files[0]);
         };
 
         function resetSwingCount() { 
-            swingCounter = 0; 
-            swingResults = [];
+            swingCounter = 0; swingResults = [];
             document.getElementById('swingCount').innerText = 0; 
             updateSwingSelector();
         }
